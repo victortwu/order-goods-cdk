@@ -3,12 +3,16 @@ import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import { OrderGoodsApiStack } from "../lib/OrderGoodsApiStack";
 import { OrderGoodsLambdaStack } from "../lib/OrderGoodsLambdaStack";
-// Hello from another computer!!
+import { OrderGoodsDataStack } from "../lib/OrderGoodsDataStack";
+
 const app = new cdk.App();
+
+const orderGoodsDataStack = new OrderGoodsDataStack(app, "OrderGoodsDataStack");
 
 const orderGoodsLambdaStack = new OrderGoodsLambdaStack(
   app,
-  "OrderGoodsLambdaStack"
+  "OrderGoodsLambdaStack",
+  { orderedListTable: orderGoodsDataStack.orderedListTable }
 );
 
 new OrderGoodsApiStack(app, "OrderGoodsApiStack", {
