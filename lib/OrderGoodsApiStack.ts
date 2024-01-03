@@ -8,7 +8,7 @@ interface OrderGoodsApiStackProps extends StackProps {
 }
 
 export class OrderGoodsApiStack extends Stack {
-  constructor(scope: Construct, id: string, props?: OrderGoodsApiStackProps) {
+  constructor(scope: Construct, id: string, props: OrderGoodsApiStackProps) {
     super(scope, id, props);
 
     const api = new RestApi(this, "OrderGoodsApi", {
@@ -23,8 +23,9 @@ export class OrderGoodsApiStack extends Stack {
 
     const listsResource = api.root.addResource("lists");
 
-    goodsResource.addMethod("GET", props?.goodsLambdaIntegration);
+    goodsResource.addMethod("GET", props.goodsLambdaIntegration);
 
-    listsResource.addMethod("GET", props?.listsLambdaIntegration);
+    listsResource.addMethod("GET", props.listsLambdaIntegration);
+    listsResource.addMethod("POST", props.listsLambdaIntegration);
   }
 }
