@@ -36,7 +36,7 @@ export class OrderGoodsLambdaStack extends Stack {
       new PolicyStatement({
         effect: Effect.ALLOW,
         resources: [props.orderedListTable.tableArn],
-        actions: ["dynamodb:PutItem"],
+        actions: ["dynamodb:PutItem", "dynamodb:GetItem"],
       })
     );
 
