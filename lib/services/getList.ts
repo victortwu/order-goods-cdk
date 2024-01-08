@@ -1,5 +1,10 @@
-import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import {
+  AttributeValue,
+  DynamoDBClient,
+  GetItemCommand,
+} from "@aws-sdk/client-dynamodb";
 import { APIGatewayEvent, APIGatewayProxyResult } from "aws-lambda";
+import { unmarshall, marshall } from "@aws-sdk/util-dynamodb";
 
 export const getList = async (
   event: APIGatewayEvent,
@@ -8,19 +13,22 @@ export const getList = async (
   if (event.queryStringParameters && "id" in event.queryStringParameters) {
     const listId = event.queryStringParameters["id"];
 
+    const marshalledListId = marshall(listId);
+
     const getListResponse = await ddbClient.send(
       new GetItemCommand({
         TableName: process.env.ORDERED_LIST_TABLE_NAME,
         Key: {
-          id: { S: listId as string },
+          id: marshalledListId as unknown as AttributeValue,
         },
       })
     );
 
     if (getListResponse.Item) {
+      const unmarshalledItem = unmarshall(getListResponse.Item);
       return {
         statusCode: 200,
-        body: JSON.stringify(getListResponse.Item),
+        body: JSON.stringify(unmarshalledItem),
       };
     } else {
       return {
