@@ -9,6 +9,7 @@ import { join } from "path";
 
 interface OrderGoodsLambdaStackProps extends StackProps {
   orderedListTable: ITable;
+  productsTable: ITable;
 }
 
 export class OrderGoodsLambdaStack extends Stack {
@@ -21,6 +22,9 @@ export class OrderGoodsLambdaStack extends Stack {
       entry: join(__dirname, "services", "goodsHandler.ts"),
       handler: "goodsHandler",
       runtime: Runtime.NODEJS_18_X,
+      environment: {
+        PRODUCTS_TABLE: props.productsTable.tableName,
+      },
     });
 
     const listsLambda = new NodejsFunction(this, "OrderGoodsListsLambda", {

@@ -11,6 +11,7 @@ import { getSuffixFromStack } from "./utils/getSuffixFromStack";
 
 export class OrderGoodsDataStack extends Stack {
   public readonly orderedListTable: ITable;
+  public readonly productsTable: ITable;
 
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
@@ -23,6 +24,14 @@ export class OrderGoodsDataStack extends Stack {
         type: AttributeType.STRING,
       },
       tableName: `OrderedListTable-${suffix}`,
+    });
+
+    this.productsTable = new Table(this, "ProductsTable", {
+      partitionKey: {
+        name: "id",
+        type: AttributeType.STRING,
+      },
+      tableName: `ProductsTable-${suffix}`,
     });
   }
 }

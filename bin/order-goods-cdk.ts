@@ -12,7 +12,10 @@ const orderGoodsDataStack = new OrderGoodsDataStack(app, "OrderGoodsDataStack");
 const orderGoodsLambdaStack = new OrderGoodsLambdaStack(
   app,
   "OrderGoodsLambdaStack",
-  { orderedListTable: orderGoodsDataStack.orderedListTable }
+  {
+    orderedListTable: orderGoodsDataStack.orderedListTable,
+    productsTable: orderGoodsDataStack.productsTable,
+  }
 );
 
 new OrderGoodsApiStack(app, "OrderGoodsApiStack", {
