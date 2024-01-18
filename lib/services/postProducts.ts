@@ -14,7 +14,7 @@ export const postProduct = async (
 
   const result = await ddbClient.send(
     new PutItemCommand({
-      TableName: process.env.PRODUCT_TABLE,
+      TableName: process.env.PRODUCTS_TABLE,
       Item: marshalledProduct,
     })
   );
