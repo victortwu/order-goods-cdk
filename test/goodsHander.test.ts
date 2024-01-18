@@ -3,17 +3,17 @@ import { goodsHandler } from "../lib/services/goodsHandler";
 
 process.env.PRODUCTS_TABLE = "ProductsTable-02b5a9df58b3";
 
-// test("GET good", async () => {
-//   const event = {
-//     httpMethod: "GET",
-//     queryStringParameters: {
-//       id: "3326d246-5267-4e17-810a-ea981f066fc3",
-//     },
-//   } as unknown as APIGatewayEvent;
-//   const context = {} as Context;
-//   const response = await goodsHandler(event, context);
-//   console.log(response);
-// });
+test("GET good", async () => {
+  const event = {
+    httpMethod: "GET",
+    queryStringParameters: {
+      id: "259991a1-8007-48ae-89d7-fc160dcf6d36",
+    },
+  } as unknown as APIGatewayEvent;
+  const context = {} as Context;
+  const response = await goodsHandler(event, context);
+  console.log(response);
+});
 
 test.skip("POST goods", async () => {
   const body = {};
