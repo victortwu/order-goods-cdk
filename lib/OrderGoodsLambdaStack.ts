@@ -27,6 +27,14 @@ export class OrderGoodsLambdaStack extends Stack {
       },
     });
 
+    goodsLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        resources: [props.productsTable.tableArn],
+        actions: ["dynamodb:PutItem", "dynamodb:GetItem"],
+      })
+    );
+
     const listsLambda = new NodejsFunction(this, "OrderGoodsListsLambda", {
       entry: join(__dirname, "services", "listsHandler.ts"),
       handler: "listsHandler",
