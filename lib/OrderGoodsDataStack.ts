@@ -26,12 +26,24 @@ export class OrderGoodsDataStack extends Stack {
       tableName: `OrderedListTable-${suffix}`,
     });
 
-    this.productsTable = new Table(this, "ProductsTable", {
+    const productsTable = (this.productsTable = new Table(
+      this,
+      "ProductsTable",
+      {
+        partitionKey: {
+          name: "id",
+          type: AttributeType.STRING,
+        },
+        tableName: `ProductsTable-${suffix}`,
+      }
+    ));
+
+    productsTable.addGlobalSecondaryIndex({
       partitionKey: {
-        name: "id",
+        name: "name",
         type: AttributeType.STRING,
       },
-      tableName: `ProductsTable-${suffix}`,
+      indexName: "NameIndex",
     });
   }
 }
