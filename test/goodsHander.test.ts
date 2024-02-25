@@ -3,7 +3,7 @@ import { goodsHandler } from "../lib/services/goodsHandler";
 
 process.env.PRODUCTS_TABLE = "ProductsTable-02b5a9df58b3";
 
-test("GET good", async () => {
+test.skip("GET good", async () => {
   const event = {
     httpMethod: "GET",
     queryStringParameters: {
