@@ -12,12 +12,18 @@ export const postList = async (
 
   const marshalledList = marshall(item.list);
 
+  // milliseconds
+  const timestamp = new Date().getTime();
+
   const result = await ddbClient.send(
     new PutItemCommand({
       TableName: process.env.ORDERED_LIST_TABLE_NAME,
       Item: {
         id: {
           S: randomId,
+        },
+        timestamp: {
+          N: timestamp.toString(),
         },
         list: { L: marshalledList as any },
       },

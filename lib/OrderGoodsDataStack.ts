@@ -18,12 +18,25 @@ export class OrderGoodsDataStack extends Stack {
 
     const suffix = getSuffixFromStack(this);
 
-    this.orderedListTable = new Table(this, "OrderedListTable", {
+    const orderedListTable = (this.orderedListTable = new Table(
+      this,
+      "OrderedListTable",
+      {
+        partitionKey: {
+          name: "id",
+          type: AttributeType.STRING,
+        },
+        tableName: `OrderedListTable-${suffix}`,
+      }
+    ));
+
+    // TODO: there are currently no handlers for this index
+    orderedListTable.addGlobalSecondaryIndex({
       partitionKey: {
-        name: "id",
-        type: AttributeType.STRING,
+        name: "timestamp",
+        type: AttributeType.NUMBER,
       },
-      tableName: `OrderedListTable-${suffix}`,
+      indexName: "TimestampIndex",
     });
 
     const productsTable = (this.productsTable = new Table(
