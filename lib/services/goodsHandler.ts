@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import { addCorsHeader } from "../utils/addCorsHeader";
 import { postProduct } from "./postProducts";
 import { getProducts } from "./getProducts";
 
@@ -9,14 +10,21 @@ const goodsHandler = async (
   event: APIGatewayEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> => {
+  let response: APIGatewayProxyResult = {
+    statusCode: 200,
+    body: "",
+  };
+
   try {
     switch (event.httpMethod) {
       case "GET":
         const getResponse = await getProducts(event, ddbClient);
-        return getResponse;
+        response = getResponse;
+        break;
       case "POST":
         const postResponse = await postProduct(event, ddbClient);
-        return postResponse;
+        response = postResponse;
+        break;
       default:
         break;
     }
@@ -28,10 +36,8 @@ const goodsHandler = async (
     };
   }
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify("Fell through, no http method."),
-  };
+  addCorsHeader(response);
+  return response;
 };
 
 export { goodsHandler };
