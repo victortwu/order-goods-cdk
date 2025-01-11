@@ -1,8 +1,7 @@
 import { PolicyStatement, Effect } from "aws-cdk-lib/aws-iam";
 import { Stack, StackProps } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LambdaIntegration } from "aws-cdk-lib/aws-apigateway";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { Runtime, Function, Code } from "aws-cdk-lib/aws-lambda";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
 import { join } from "path";
@@ -18,9 +17,9 @@ export class OrderGoodsLambdaStack extends Stack {
   constructor(scope: Construct, id: string, props: OrderGoodsLambdaStackProps) {
     super(scope, id, props);
 
-    const goodsLambda = new NodejsFunction(this, "OrderGoodsLambda", {
-      entry: join(__dirname, "services", "goodsHandler.ts"),
-      handler: "goodsHandler",
+    const goodsLambda = new Function(this, "OrderGoodsLambda", {
+      code: Code.fromAsset(join(__dirname, "services")),
+      handler: "goodsHandler.goodsHandler",
       runtime: Runtime.NODEJS_18_X,
       environment: {
         PRODUCTS_TABLE: props.productsTable.tableName,
@@ -40,9 +39,9 @@ export class OrderGoodsLambdaStack extends Stack {
       })
     );
 
-    const listsLambda = new NodejsFunction(this, "OrderGoodsListsLambda", {
-      entry: join(__dirname, "services", "listsHandler.ts"),
-      handler: "listsHandler",
+    const listsLambda = new Function(this, "OrderGoodsListsLambda", {
+      code: Code.fromAsset(join(__dirname, "services")),
+      handler: "listsHandler.listsHandler",
       runtime: Runtime.NODEJS_18_X,
       environment: {
         ORDERED_LIST_TABLE_NAME: props.orderedListTable.tableName,

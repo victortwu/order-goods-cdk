@@ -4,8 +4,11 @@ import * as cdk from "aws-cdk-lib";
 import { OrderGoodsApiStack } from "../lib/OrderGoodsApiStack";
 import { OrderGoodsLambdaStack } from "../lib/OrderGoodsLambdaStack";
 import { OrderGoodsDataStack } from "../lib/OrderGoodsDataStack";
+import { OrderGoodsAuthStack } from "../lib/OrderGoodsAuthStack";
 
 const app = new cdk.App();
+
+const orderGoodsAuthStack = new OrderGoodsAuthStack(app, "OrderGoodsAuthStack");
 
 const orderGoodsDataStack = new OrderGoodsDataStack(app, "OrderGoodsDataStack");
 
