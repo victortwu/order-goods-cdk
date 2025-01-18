@@ -21,6 +21,7 @@ export class OrderGoodsLambdaStack extends Stack {
       code: Code.fromAsset(join(__dirname, "services")),
       handler: "goodsHandler.goodsHandler",
       runtime: Runtime.NODEJS_18_X,
+      memorySize: 512,
       environment: {
         PRODUCTS_TABLE: props.productsTable.tableName,
       },
@@ -43,6 +44,7 @@ export class OrderGoodsLambdaStack extends Stack {
       code: Code.fromAsset(join(__dirname, "services")),
       handler: "listsHandler.listsHandler",
       runtime: Runtime.NODEJS_18_X,
+      memorySize: 512,
       environment: {
         ORDERED_LIST_TABLE_NAME: props.orderedListTable.tableName,
       },
