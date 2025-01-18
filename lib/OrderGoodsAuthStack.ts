@@ -4,12 +4,15 @@ import {
   UserPool,
   UserPoolClient,
   CfnUserPoolGroup,
+  CfnIdentityPool,
+  CfnIdentityPoolRoleAttachment,
 } from "aws-cdk-lib/aws-cognito";
-import { Role, ServicePrincipal, ManagedPolicy } from "aws-cdk-lib/aws-iam";
+import { Role, ManagedPolicy, FederatedPrincipal } from "aws-cdk-lib/aws-iam";
 
 export class OrderGoodsAuthStack extends Stack {
   public readonly userPool: UserPool;
   public readonly userPoolClient: UserPoolClient;
+  public readonly identityPool: CfnIdentityPool;
 
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
@@ -30,8 +33,47 @@ export class OrderGoodsAuthStack extends Stack {
       userPool: this.userPool,
     });
 
+    this.identityPool = new CfnIdentityPool(this, "OrderGoodsIdentityPool", {
+      allowUnauthenticatedIdentities: false,
+      cognitoIdentityProviders: [
+        {
+          clientId: this.userPoolClient.userPoolClientId,
+          providerName: `cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
+        },
+      ],
+    });
+
+    const authenticatedRole = new Role(this, "OrderGoodsAuthenticatedRole", {
+      assumedBy: new FederatedPrincipal(
+        "cognito-identity.amazonaws.com",
+        {
+          StringEquals: {
+            "cognito-identity.amazonaws.com:aud": this.identityPool.ref,
+          },
+          "ForAnyValue:StringLike": {
+            "cognito-identity.amazonaws.com:amr": "authenticated",
+          },
+        },
+        "sts:AssumeRoleWithWebIdentity"
+      ),
+      managedPolicies: [
+        ManagedPolicy.fromAwsManagedPolicyName("AmazonCognitoPowerUser"),
+      ],
+    });
+
     const adminRole = new Role(this, "OrderGoodsAdminRole", {
-      assumedBy: new ServicePrincipal("cognito-idp.amazonaws.com"),
+      assumedBy: new FederatedPrincipal(
+        "cognito-identity.amazonaws.com",
+        {
+          StringEquals: {
+            "cognito-identity.amazonaws.com:aud": this.identityPool.ref,
+          },
+          "ForAnyValue:StringLike": {
+            "cognito-identity.amazonaws.com:amr": "authenticated",
+          },
+        },
+        "sts:AssumeRoleWithWebIdentity"
+      ),
       managedPolicies: [
         ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"),
       ],
@@ -42,5 +84,33 @@ export class OrderGoodsAuthStack extends Stack {
       groupName: "admins",
       roleArn: adminRole.roleArn,
     });
+
+    new CfnIdentityPoolRoleAttachment(
+      this,
+      "OrderGoodsIdentityPoolRoleAttachment",
+      {
+        identityPoolId: this.identityPool.ref,
+        roles: {
+          authenticated: authenticatedRole.roleArn,
+        },
+        roleMappings: {
+          admins: {
+            type: "Token",
+            ambiguousRoleResolution: "AuthenticatedRole",
+            identityProvider: `cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}:${this.userPoolClient.userPoolClientId}`,
+            rulesConfiguration: {
+              rules: [
+                {
+                  claim: "cognito:groups",
+                  matchType: "Contains",
+                  value: "admins",
+                  roleArn: adminRole.roleArn,
+                },
+              ],
+            },
+          },
+        },
+      }
+    );
   }
 }
