@@ -23,7 +23,7 @@ export class OrderGoodsLambdaStack extends Stack {
     const goodsLambda = new NodejsFunction(this, "OrderGoodsLambda", {
       entry: join(__dirname, "services", "goodsHandler.ts"),
       handler: "goodsHandler",
-      runtime: Runtime.NODEJS_18_X,
+      runtime: Runtime.NODEJS_22_X,
       bundling: {
         forceDockerBundling: false,
       },
@@ -42,13 +42,13 @@ export class OrderGoodsLambdaStack extends Stack {
           "dynamodb:Scan",
           "dynamodb:Query",
         ],
-      })
+      }),
     );
 
     const listsLambda = new NodejsFunction(this, "OrderGoodsListsLambda", {
       entry: join(__dirname, "services", "listsHandler.ts"),
       handler: "listsHandler",
-      runtime: Runtime.NODEJS_18_X,
+      runtime: Runtime.NODEJS_22_X,
       bundling: {
         forceDockerBundling: false,
       },
@@ -62,7 +62,7 @@ export class OrderGoodsLambdaStack extends Stack {
         effect: Effect.ALLOW,
         resources: [props.orderedListTable.tableArn],
         actions: ["dynamodb:PutItem", "dynamodb:GetItem"],
-      })
+      }),
     );
 
     this.goodsLambdaIntegration = new LambdaIntegration(goodsLambda);
