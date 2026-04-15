@@ -8,7 +8,7 @@ const ddbClient = new DynamoDBClient();
 
 const goodsHandler = async (
   event: APIGatewayEvent,
-  context: Context
+  context: Context,
 ): Promise<APIGatewayProxyResult> => {
   let response: APIGatewayProxyResult = {
     statusCode: 200,

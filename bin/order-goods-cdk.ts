@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { OrderGoodsApiStack } from "../lib/OrderGoodsApiStack";
-import { OrderGoodsLambdaStack } from "../lib/OrderGoodsLambdaStack";
-import { OrderGoodsDataStack } from "../lib/OrderGoodsDataStack";
-import { OrderGoodsAuthStack } from "../lib/OrderGoodsAuthStack";
+import { OrderGoodsApiStack } from "../lib/stacks/OrderGoodsApiStack";
+import { OrderGoodsLambdaStack } from "../lib/stacks/OrderGoodsLambdaStack";
+import { OrderGoodsDataStack } from "../lib/stacks/OrderGoodsDataStack";
+import { OrderGoodsAuthStack } from "../lib/stacks/OrderGoodsAuthStack";
 
 const app = new cdk.App();
 
@@ -18,7 +18,7 @@ const orderGoodsLambdaStack = new OrderGoodsLambdaStack(
   {
     orderedListTable: orderGoodsDataStack.orderedListTable,
     productsTable: orderGoodsDataStack.productsTable,
-  }
+  },
 );
 
 new OrderGoodsApiStack(app, "OrderGoodsApiStack", {

@@ -7,7 +7,7 @@ import { Construct } from "constructs";
 import { join } from "path";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 
-// TODO: move handlers from /services to /services/{nameOfService}/handlers/
+// Lambda handler entry points are in lib/lambdas/
 
 interface OrderGoodsLambdaStackProps extends StackProps {
   orderedListTable: ITable;
@@ -21,7 +21,7 @@ export class OrderGoodsLambdaStack extends Stack {
     super(scope, id, props);
 
     const goodsLambda = new NodejsFunction(this, "OrderGoodsLambda", {
-      entry: join(__dirname, "services", "goodsHandler.ts"),
+      entry: join(__dirname, "..", "lambdas", "goods", "handler.ts"),
       handler: "goodsHandler",
       runtime: Runtime.NODEJS_22_X,
       bundling: {
@@ -46,7 +46,7 @@ export class OrderGoodsLambdaStack extends Stack {
     );
 
     const listsLambda = new NodejsFunction(this, "OrderGoodsListsLambda", {
-      entry: join(__dirname, "services", "listsHandler.ts"),
+      entry: join(__dirname, "..", "lambdas", "lists", "handler.ts"),
       handler: "listsHandler",
       runtime: Runtime.NODEJS_22_X,
       bundling: {

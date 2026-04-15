@@ -7,7 +7,7 @@
 import { Stack, StackProps } from "aws-cdk-lib";
 import { AttributeType, ITable, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
-import { getSuffixFromStack } from "./utils/getSuffixFromStack";
+import { getSuffixFromStack } from "../utils/getSuffixFromStack";
 
 export class OrderGoodsDataStack extends Stack {
   public readonly orderedListTable: ITable;
@@ -27,7 +27,7 @@ export class OrderGoodsDataStack extends Stack {
           type: AttributeType.STRING,
         },
         tableName: `OrderedListTable-${suffix}`,
-      }
+      },
     ));
 
     // TODO: there are currently no handlers for this index
@@ -48,7 +48,7 @@ export class OrderGoodsDataStack extends Stack {
           type: AttributeType.STRING,
         },
         tableName: `ProductsTable-${suffix}`,
-      }
+      },
     ));
 
     productsTable.addGlobalSecondaryIndex({
