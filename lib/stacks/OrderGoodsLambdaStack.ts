@@ -10,6 +10,7 @@ import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 // Lambda handler entry points are in lib/lambdas/
 
 interface OrderGoodsLambdaStackProps extends StackProps {
+  stage: string;
   orderedListTable: ITable;
   productsTable: ITable;
 }
@@ -21,6 +22,7 @@ export class OrderGoodsLambdaStack extends Stack {
     super(scope, id, props);
 
     const goodsLambda = new NodejsFunction(this, "OrderGoodsLambda", {
+      functionName: `OrderGoods-${props.stage}-GoodsHandler`,
       entry: join(__dirname, "..", "lambdas", "goods", "handler.ts"),
       handler: "goodsHandler",
       runtime: Runtime.NODEJS_22_X,
@@ -46,6 +48,7 @@ export class OrderGoodsLambdaStack extends Stack {
     );
 
     const listsLambda = new NodejsFunction(this, "OrderGoodsListsLambda", {
+      functionName: `OrderGoods-${props.stage}-ListsHandler`,
       entry: join(__dirname, "..", "lambdas", "lists", "handler.ts"),
       handler: "listsHandler",
       runtime: Runtime.NODEJS_22_X,

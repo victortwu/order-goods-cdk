@@ -8,25 +8,35 @@ import { OrderGoodsAuthStack } from "../lib/stacks/OrderGoodsAuthStack";
 import { OrderGoodsDispatchStack } from "../lib/stacks/OrderGoodsDispatchStack";
 
 const app = new cdk.App();
+const stages = ["Beta", "Prod"];
 
-const orderGoodsAuthStack = new OrderGoodsAuthStack(app, "OrderGoodsAuthStack");
-
-const orderGoodsDataStack = new OrderGoodsDataStack(app, "OrderGoodsDataStack");
-
-const orderGoodsLambdaStack = new OrderGoodsLambdaStack(
-  app,
-  "OrderGoodsLambdaStack",
-  {
-    orderedListTable: orderGoodsDataStack.orderedListTable,
-    productsTable: orderGoodsDataStack.productsTable,
-  },
-);
-
-new OrderGoodsApiStack(app, "OrderGoodsApiStack", {
-  goodsLambdaIntegration: orderGoodsLambdaStack.goodsLambdaIntegration,
-  listsLambdaIntegration: orderGoodsLambdaStack.listsLambdaIntegration,
-});
-
-new OrderGoodsDispatchStack(app, "OrderGoodsDispatchStack", {
-  orderedListTable: orderGoodsDataStack.orderedListTable,
-});
+for (const stage of stages) {
+  const authStack = new OrderGoodsAuthStack(
+    app,
+    `${stage}-OrderGoodsAuthStack`,
+    { stage },
+  );
+  const dataStack = new OrderGoodsDataStack(
+    app,
+    `${stage}-OrderGoodsDataStack`,
+    { stage },
+  );
+  const lambdaStack = new OrderGoodsLambdaStack(
+    app,
+    `${stage}-OrderGoodsLambdaStack`,
+    {
+      stage,
+      orderedListTable: dataStack.orderedListTable,
+      productsTable: dataStack.productsTable,
+    },
+  );
+  new OrderGoodsApiStack(app, `${stage}-OrderGoodsApiStack`, {
+    stage,
+    goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
+    listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
+  });
+  new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
+    stage,
+    orderedListTable: dataStack.orderedListTable,
+  });
+}

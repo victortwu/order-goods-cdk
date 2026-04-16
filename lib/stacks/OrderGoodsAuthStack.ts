@@ -9,15 +9,20 @@ import {
 } from "aws-cdk-lib/aws-cognito";
 import { Role, ManagedPolicy, FederatedPrincipal } from "aws-cdk-lib/aws-iam";
 
+export interface OrderGoodsAuthStackProps extends StackProps {
+  stage: string;
+}
+
 export class OrderGoodsAuthStack extends Stack {
   public readonly userPool: UserPool;
   public readonly userPoolClient: UserPoolClient;
   public readonly identityPool: CfnIdentityPool;
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props: OrderGoodsAuthStackProps) {
     super(scope, id, props);
 
     this.userPool = new UserPool(this, "OrderGoodsUserPool", {
+      userPoolName: `OrderGoods-${props.stage}-UserPool`,
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       autoVerify: { email: true },
@@ -34,6 +39,7 @@ export class OrderGoodsAuthStack extends Stack {
     });
 
     this.identityPool = new CfnIdentityPool(this, "OrderGoodsIdentityPool", {
+      identityPoolName: `OrderGoods-${props.stage}-IdentityPool`,
       allowUnauthenticatedIdentities: false,
       cognitoIdentityProviders: [
         {
@@ -54,7 +60,7 @@ export class OrderGoodsAuthStack extends Stack {
             "cognito-identity.amazonaws.com:amr": "authenticated",
           },
         },
-        "sts:AssumeRoleWithWebIdentity"
+        "sts:AssumeRoleWithWebIdentity",
       ),
       managedPolicies: [
         ManagedPolicy.fromAwsManagedPolicyName("AmazonCognitoPowerUser"),
@@ -72,7 +78,7 @@ export class OrderGoodsAuthStack extends Stack {
             "cognito-identity.amazonaws.com:amr": "authenticated",
           },
         },
-        "sts:AssumeRoleWithWebIdentity"
+        "sts:AssumeRoleWithWebIdentity",
       ),
       managedPolicies: [
         ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"),
@@ -110,7 +116,7 @@ export class OrderGoodsAuthStack extends Stack {
             },
           },
         },
-      }
+      },
     );
   }
 }

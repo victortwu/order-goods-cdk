@@ -8,6 +8,7 @@ import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 
 interface OrderGoodsDispatchStackProps extends StackProps {
+  stage: string;
   orderedListTable: ITable;
 }
 
@@ -20,6 +21,7 @@ export class OrderGoodsDispatchStack extends Stack {
     super(scope, id, props);
 
     const dispatchLambda = new NodejsFunction(this, "DispatchLambda", {
+      functionName: `OrderGoods-${props.stage}-DispatchHandler`,
       entry: join(__dirname, "..", "lambdas", "dispatch", "handler.ts"),
       handler: "dispatchHandler",
       runtime: Runtime.NODEJS_22_X,

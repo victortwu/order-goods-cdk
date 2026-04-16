@@ -8,11 +8,14 @@ describe("OrderGoodsDispatchStack", () => {
 
   beforeAll(() => {
     const app = new cdk.App();
-    const dataStack = new OrderGoodsDataStack(app, "TestDataStack");
+    const dataStack = new OrderGoodsDataStack(app, "TestDataStack", {
+      stage: "Test",
+    });
     const dispatchStack = new OrderGoodsDispatchStack(
       app,
       "TestDispatchStack",
       {
+        stage: "Test",
         orderedListTable: dataStack.orderedListTable,
       },
     );

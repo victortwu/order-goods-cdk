@@ -14,11 +14,15 @@ import {
 import { Construct } from "constructs";
 import { getSuffixFromStack } from "../utils/getSuffixFromStack";
 
+interface OrderGoodsDataStackProps extends StackProps {
+  stage: string;
+}
+
 export class OrderGoodsDataStack extends Stack {
   public readonly orderedListTable: ITable;
   public readonly productsTable: ITable;
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props: OrderGoodsDataStackProps) {
     super(scope, id, props);
 
     const suffix = getSuffixFromStack(this);
@@ -31,7 +35,7 @@ export class OrderGoodsDataStack extends Stack {
           name: "id",
           type: AttributeType.STRING,
         },
-        tableName: `OrderedListTable-${suffix}`,
+        tableName: `OrderedListTable-${props.stage}-${suffix}`,
         stream: StreamViewType.NEW_IMAGE,
       },
     ));
@@ -53,7 +57,7 @@ export class OrderGoodsDataStack extends Stack {
           name: "id",
           type: AttributeType.STRING,
         },
-        tableName: `ProductsTable-${suffix}`,
+        tableName: `ProductsTable-${props.stage}-${suffix}`,
       },
     ));
 
