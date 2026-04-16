@@ -5,6 +5,7 @@ import { OrderGoodsApiStack } from "../lib/stacks/OrderGoodsApiStack";
 import { OrderGoodsLambdaStack } from "../lib/stacks/OrderGoodsLambdaStack";
 import { OrderGoodsDataStack } from "../lib/stacks/OrderGoodsDataStack";
 import { OrderGoodsAuthStack } from "../lib/stacks/OrderGoodsAuthStack";
+import { OrderGoodsDispatchStack } from "../lib/stacks/OrderGoodsDispatchStack";
 
 const app = new cdk.App();
 
@@ -24,4 +25,8 @@ const orderGoodsLambdaStack = new OrderGoodsLambdaStack(
 new OrderGoodsApiStack(app, "OrderGoodsApiStack", {
   goodsLambdaIntegration: orderGoodsLambdaStack.goodsLambdaIntegration,
   listsLambdaIntegration: orderGoodsLambdaStack.listsLambdaIntegration,
+});
+
+new OrderGoodsDispatchStack(app, "OrderGoodsDispatchStack", {
+  orderedListTable: orderGoodsDataStack.orderedListTable,
 });
