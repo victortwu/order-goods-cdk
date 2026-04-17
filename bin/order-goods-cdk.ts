@@ -6,6 +6,7 @@ import { OrderGoodsLambdaStack } from "../lib/stacks/OrderGoodsLambdaStack";
 import { OrderGoodsDataStack } from "../lib/stacks/OrderGoodsDataStack";
 import { OrderGoodsAuthStack } from "../lib/stacks/OrderGoodsAuthStack";
 import { OrderGoodsDispatchStack } from "../lib/stacks/OrderGoodsDispatchStack";
+import { OrderGoodsFrontendStack } from "../lib/stacks/OrderGoodsFrontendStack";
 
 const app = new cdk.App();
 const stages = ["Beta", "Prod"];
@@ -39,5 +40,8 @@ for (const stage of stages) {
   new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
     stage,
     orderedListTable: dataStack.orderedListTable,
+  });
+  new OrderGoodsFrontendStack(app, `${stage}-OrderGoodsFrontendStack`, {
+    stage,
   });
 }
