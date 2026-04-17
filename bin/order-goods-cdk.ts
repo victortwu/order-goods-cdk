@@ -34,6 +34,7 @@ for (const stage of stages) {
     stage,
     goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
     listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
+    userPool: authStack.userPool,
   });
   new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
     stage,

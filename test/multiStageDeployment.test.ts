@@ -36,6 +36,7 @@ describe("Multi-Stage Deployment", () => {
           stage,
           goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
           listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
+          userPool: authStack.userPool,
         });
         new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
           stage,
@@ -195,10 +196,16 @@ describe("Multi-Stage Deployment", () => {
           productsTable: dataStack.productsTable,
         },
       );
+      const authStack = new OrderGoodsAuthStack(
+        app,
+        "Beta-OrderGoodsAuthStack",
+        { stage: "Beta" },
+      );
       const apiStack = new OrderGoodsApiStack(app, "Beta-OrderGoodsApiStack", {
         stage: "Beta",
         goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
         listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
+        userPool: authStack.userPool,
       });
       const template = Template.fromStack(apiStack);
 

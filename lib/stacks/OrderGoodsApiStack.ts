@@ -1,19 +1,40 @@
 import { Stack, StackProps } from "aws-cdk-lib";
-import { LambdaIntegration, RestApi, Cors } from "aws-cdk-lib/aws-apigateway";
+import {
+  LambdaIntegration,
+  RestApi,
+  Cors,
+  CognitoUserPoolsAuthorizer,
+  AuthorizationType,
+} from "aws-cdk-lib/aws-apigateway";
+import { IUserPool } from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 
 interface OrderGoodsApiStackProps extends StackProps {
   stage: string;
   goodsLambdaIntegration: LambdaIntegration;
   listsLambdaIntegration: LambdaIntegration;
+  userPool: IUserPool;
 }
 
 export class OrderGoodsApiStack extends Stack {
   constructor(scope: Construct, id: string, props: OrderGoodsApiStackProps) {
     super(scope, id, props);
 
+    const authorizer = new CognitoUserPoolsAuthorizer(
+      this,
+      "OrderGoodsAuthorizer",
+      {
+        cognitoUserPools: [props.userPool],
+        authorizerName: `OrderGoods-${props.stage}-Authorizer`,
+      },
+    );
+
     const api = new RestApi(this, "OrderGoodsApi", {
       restApiName: `OrderGoods-${props.stage}-Api`,
+      defaultMethodOptions: {
+        authorizer,
+        authorizationType: AuthorizationType.COGNITO,
+      },
     });
 
     const optionsWithCors = {

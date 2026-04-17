@@ -23,7 +23,7 @@ export class OrderGoodsAuthStack extends Stack {
 
     this.userPool = new UserPool(this, "OrderGoodsUserPool", {
       userPoolName: `OrderGoods-${props.stage}-UserPool`,
-      selfSignUpEnabled: true,
+      selfSignUpEnabled: props.stage !== "Prod",
       signInAliases: { email: true },
       autoVerify: { email: true },
       standardAttributes: {
