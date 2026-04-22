@@ -19,6 +19,22 @@ jest.mock("@aws-sdk/util-dynamodb", () => ({
   unmarshall: mockUnmarshall,
 }));
 
+// --- Mock ecsInvoker ---
+
+const mockInvokePlaywrightTask = jest.fn();
+jest.mock("../lib/lambdas/dispatch/ecsInvoker", () => ({
+  invokePlaywrightTask: mockInvokePlaywrightTask,
+}));
+
+// --- Mock emailFormatter ---
+
+const mockSendOrderResultEmail = jest.fn();
+const mockSendFallbackEmail = jest.fn();
+jest.mock("../lib/lambdas/dispatch/emailFormatter", () => ({
+  sendOrderResultEmail: mockSendOrderResultEmail,
+  sendFallbackEmail: mockSendFallbackEmail,
+}));
+
 // --- Env setup ---
 
 process.env.RECIPIENT_EMAIL = "test@example.com";
@@ -79,9 +95,12 @@ describe("dispatchHandler", () => {
   beforeEach(() => {
     mockSend.mockReset();
     mockUnmarshall.mockReset();
+    mockInvokePlaywrightTask.mockReset();
+    mockSendOrderResultEmail.mockReset();
+    mockSendFallbackEmail.mockReset();
   });
 
-  test("INSERT event with multi-vendor items calls SES once per vendor group", async () => {
+  test("INSERT event with multi-vendor items routes RESTAURANT_DEPOT to ECS and others to SES", async () => {
     // arrange
     const orderData = makeOrderData("order-123", [
       {
@@ -108,6 +127,14 @@ describe("dispatchHandler", () => {
     ]);
     mockUnmarshall.mockReturnValue(orderData);
     mockSend.mockResolvedValue({});
+    mockInvokePlaywrightTask.mockResolvedValue({
+      orderId: "order-123",
+      status: "success",
+      timestamp: new Date().toISOString(),
+      itemsAdded: [],
+      itemsNotAdded: [],
+    });
+    mockSendOrderResultEmail.mockResolvedValue(undefined);
 
     const event = buildStreamEvent([
       { eventName: "INSERT", newImage: { placeholder: "marshalled" } },
@@ -116,8 +143,10 @@ describe("dispatchHandler", () => {
     // act
     await dispatchHandler(event);
 
-    // assert — 2 vendor groups: RESTAURANT_DEPOT and WESTCOAST_PITA
-    expect(mockSend).toHaveBeenCalledTimes(2);
+    // assert — RESTAURANT_DEPOT goes through ECS, WESTCOAST_PITA goes through SES
+    expect(mockInvokePlaywrightTask).toHaveBeenCalledTimes(1);
+    expect(mockSendOrderResultEmail).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(1); // only WESTCOAST_PITA via SES
   });
 
   test("MODIFY event is skipped (no SES calls)", async () => {
@@ -148,7 +177,7 @@ describe("dispatchHandler", () => {
     expect(mockUnmarshall).not.toHaveBeenCalled();
   });
 
-  test("SES failure for one vendor group does not prevent remaining groups from sending", async () => {
+  test("ECS failure for RESTAURANT_DEPOT does not prevent remaining groups from sending", async () => {
     // arrange
     const orderData = makeOrderData("order-456", [
       {
@@ -168,10 +197,10 @@ describe("dispatchHandler", () => {
     ]);
     mockUnmarshall.mockReturnValue(orderData);
 
-    // First call fails, second succeeds
-    mockSend
-      .mockRejectedValueOnce(new Error("SES throttle"))
-      .mockResolvedValueOnce({});
+    // ECS invocation fails, fallback email succeeds, SES for other vendor succeeds
+    mockInvokePlaywrightTask.mockRejectedValueOnce(new Error("ECS timeout"));
+    mockSendFallbackEmail.mockResolvedValue(undefined);
+    mockSend.mockResolvedValue({});
 
     const event = buildStreamEvent([
       { eventName: "INSERT", newImage: { placeholder: "marshalled" } },
@@ -180,19 +209,21 @@ describe("dispatchHandler", () => {
     // act
     await dispatchHandler(event);
 
-    // assert — both vendor groups attempted despite first failure
-    expect(mockSend).toHaveBeenCalledTimes(2);
+    // assert — RESTAURANT_DEPOT failed, fallback sent, WESTCOAST_PITA still processed
+    expect(mockInvokePlaywrightTask).toHaveBeenCalledTimes(1);
+    expect(mockSendFallbackEmail).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(1); // WESTCOAST_PITA via SES
   });
 
-  test("email recipient matches RECIPIENT_EMAIL env var", async () => {
+  test("email recipient matches RECIPIENT_EMAIL env var for non-RESTAURANT_DEPOT vendors", async () => {
     // arrange
     const orderData = makeOrderData("order-789", [
       {
         id: "1",
-        productName: "Flour",
+        productName: "Pita",
         qty: 5,
         unitType: "case",
-        vendorID: "RESTAURANT_DEPOT",
+        vendorID: "WESTCOAST_PITA",
       },
     ]);
     mockUnmarshall.mockReturnValue(orderData);

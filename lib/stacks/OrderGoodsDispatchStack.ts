@@ -10,6 +10,11 @@ import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 interface OrderGoodsDispatchStackProps extends StackProps {
   stage: string;
   orderedListTable: ITable;
+  ecsClusterArn: string;
+  ecsTaskDefinitionArn: string;
+  ecsSubnetIds: string;
+  ecsSecurityGroupIds: string;
+  ecsLogGroupName: string;
 }
 
 export class OrderGoodsDispatchStack extends Stack {
@@ -30,6 +35,11 @@ export class OrderGoodsDispatchStack extends Stack {
       },
       environment: {
         RECIPIENT_EMAIL: process.env.RECIPIENT_EMAIL || "",
+        ECS_CLUSTER_ARN: props.ecsClusterArn,
+        ECS_TASK_DEFINITION_ARN: props.ecsTaskDefinitionArn,
+        ECS_SUBNET_IDS: props.ecsSubnetIds,
+        ECS_SECURITY_GROUP_IDS: props.ecsSecurityGroupIds,
+        ECS_LOG_GROUP: props.ecsLogGroupName,
       },
     });
 
@@ -44,6 +54,30 @@ export class OrderGoodsDispatchStack extends Stack {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: ["*"],
+      }),
+    );
+
+    dispatchLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["ecs:RunTask"],
+        resources: ["*"],
+      }),
+    );
+
+    dispatchLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["iam:PassRole"],
+        resources: ["*"],
+      }),
+    );
+
+    dispatchLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["logs:GetLogEvents"],
         resources: ["*"],
       }),
     );

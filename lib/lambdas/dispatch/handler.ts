@@ -6,10 +6,40 @@ import {
   groupItemsByVendor,
   buildVendorGroup,
   formatVendorSubject,
+  VendorGroup,
   OrderItemRecord,
 } from "./vendorRouter";
+import { invokePlaywrightTask } from "./ecsInvoker";
+import { sendOrderResultEmail, sendFallbackEmail } from "./emailFormatter";
 
 const sesClient = new SESClient({});
+
+/**
+ * Sends a vendor order email via SES (the original email path for non-RESTAURANT_DEPOT vendors).
+ */
+async function sendVendorEmail(
+  vendorGroup: VendorGroup,
+  recipientEmail: string,
+): Promise<void> {
+  await sesClient.send(
+    new SendEmailCommand({
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: formatVendorSubject(vendorGroup.vendorID),
+        },
+        Body: {
+          Text: {
+            Data: JSON.stringify(vendorGroup, null, 2),
+          },
+        },
+      },
+      Source: recipientEmail,
+    }),
+  );
+}
 
 export const dispatchHandler = async (
   event: DynamoDBStreamEvent,
@@ -48,31 +78,47 @@ export const dispatchHandler = async (
     for (const [vendorId, items] of vendorGroups) {
       const vendorGroup = buildVendorGroup(orderId, vendorId, items);
 
-      // Task 3.5 & 3.6: SES email sending with continue-on-failure
-      try {
-        await sesClient.send(
-          new SendEmailCommand({
-            Destination: {
-              ToAddresses: [recipientEmail!],
-            },
-            Message: {
-              Subject: {
-                Data: formatVendorSubject(vendorId),
-              },
-              Body: {
-                Text: {
-                  Data: JSON.stringify(vendorGroup, null, 2),
-                },
-              },
-            },
-            Source: recipientEmail!,
-          }),
-        );
-      } catch (error) {
-        console.error(
-          `Failed to send email for vendor ${vendorId}, order ${orderId}:`,
-          error,
-        );
+      if (vendorId === "RESTAURANT_DEPOT") {
+        // Task 6.5: RESTAURANT_DEPOT routing — invoke Playwright bot via ECS/Fargate
+        try {
+          const orderResult = await invokePlaywrightTask(vendorGroup);
+
+          // Inner try/catch: email failure should not trigger fallback
+          try {
+            await sendOrderResultEmail(orderResult, recipientEmail!);
+          } catch (emailError) {
+            console.error(
+              `Failed to send OrderResult email for order ${orderId}:`,
+              emailError,
+            );
+          }
+        } catch (error) {
+          console.error(
+            `Playwright invocation failed for order ${orderId}:`,
+            error,
+          );
+
+          // Send fallback email with VendorGroup payload; wrap in try/catch
+          // so a fallback email failure doesn't break the loop
+          try {
+            await sendFallbackEmail(vendorGroup, recipientEmail!);
+          } catch (fallbackError) {
+            console.error(
+              `Failed to send fallback email for order ${orderId}:`,
+              fallbackError,
+            );
+          }
+        }
+      } else {
+        // Existing SES email path for all other vendors
+        try {
+          await sendVendorEmail(vendorGroup, recipientEmail!);
+        } catch (error) {
+          console.error(
+            `Failed to send email for vendor ${vendorId}, order ${orderId}:`,
+            error,
+          );
+        }
       }
     }
   }
