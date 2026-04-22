@@ -123,7 +123,7 @@ export class OrderGoodsRDOrderBotStack extends Stack {
       environment: {
         CREDENTIAL_SOURCE: "secrets_manager",
         SECRET_NAME_OR_PATH: `order-goods/${stageLower}/restaurant-depot-creds`,
-        DELIVERY_ZIP_CODE: "98109",
+        DELIVERY_ZIP_CODE: "",
       },
     });
 
