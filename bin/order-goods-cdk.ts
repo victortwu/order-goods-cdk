@@ -7,12 +7,15 @@ import { OrderGoodsDataStack } from "../lib/stacks/OrderGoodsDataStack";
 import { OrderGoodsAuthStack } from "../lib/stacks/OrderGoodsAuthStack";
 import { OrderGoodsDispatchStack } from "../lib/stacks/OrderGoodsDispatchStack";
 import { OrderGoodsFrontendStack } from "../lib/stacks/OrderGoodsFrontendStack";
-import { OrderGoodsRDOrderBotStack } from "../lib/stacks/OrderGoodsRDOrderBotStack";
+import { BotClusterStack } from "../lib/stacks/BotClusterStack";
+import { PlaywrightBotStack } from "../lib/stacks/PlaywrightBotStack";
 
 const app = new cdk.App();
 const stages = ["Beta", "Prod"];
 
 for (const stage of stages) {
+  const stageLower = stage.toLowerCase();
+
   const authStack = new OrderGoodsAuthStack(
     app,
     `${stage}-OrderGoodsAuthStack`,
@@ -38,22 +41,39 @@ for (const stage of stages) {
     listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
     userPool: authStack.userPool,
   });
-  const rdOrderBotStack = new OrderGoodsRDOrderBotStack(
+
+  // Shared bot infrastructure
+  const botClusterStack = new BotClusterStack(
     app,
-    `${stage}-OrderGoodsRDOrderBotStack`,
+    `${stage}-BotClusterStack`,
+    { stage },
+  );
+
+  // Per-vendor bot stacks
+  const rdBotStack = new PlaywrightBotStack(
+    app,
+    `${stage}-PlaywrightBotStack-restaurant-depot`,
     {
       stage,
+      vendorId: "restaurant-depot",
+      botName: "RD Order Bot",
+      credentialSecretPath: `order-goods/${stageLower}/restaurant-depot-creds`,
+      environmentVars: { DELIVERY_ZIP_CODE: "" },
     },
   );
-  new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
-    stage,
-    orderedListTable: dataStack.orderedListTable,
-    ecsClusterArn: rdOrderBotStack.clusterArn,
-    ecsTaskDefinitionArn: rdOrderBotStack.taskDefinitionArn,
-    ecsSubnetIds: rdOrderBotStack.subnetIds,
-    ecsSecurityGroupIds: rdOrderBotStack.securityGroupIds,
-    ecsLogGroupName: rdOrderBotStack.logGroupName,
-  });
+  rdBotStack.addDependency(botClusterStack);
+
+  // Dispatch stack — fully decoupled, reads SSM at runtime
+  const dispatchStack = new OrderGoodsDispatchStack(
+    app,
+    `${stage}-OrderGoodsDispatchStack`,
+    {
+      stage,
+      orderedListTable: dataStack.orderedListTable,
+    },
+  );
+  dispatchStack.addDependency(rdBotStack);
+
   new OrderGoodsFrontendStack(app, `${stage}-OrderGoodsFrontendStack`, {
     stage,
   });

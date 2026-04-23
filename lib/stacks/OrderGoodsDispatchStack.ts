@@ -1,3 +1,4 @@
+import { Duration } from "aws-cdk-lib";
 import { PolicyStatement, Effect } from "aws-cdk-lib/aws-iam";
 import { Stack, StackProps } from "aws-cdk-lib";
 import { Runtime, StartingPosition } from "aws-cdk-lib/aws-lambda";
@@ -10,11 +11,6 @@ import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 interface OrderGoodsDispatchStackProps extends StackProps {
   stage: string;
   orderedListTable: ITable;
-  ecsClusterArn: string;
-  ecsTaskDefinitionArn: string;
-  ecsSubnetIds: string;
-  ecsSecurityGroupIds: string;
-  ecsLogGroupName: string;
 }
 
 export class OrderGoodsDispatchStack extends Stack {
@@ -25,21 +21,20 @@ export class OrderGoodsDispatchStack extends Stack {
   ) {
     super(scope, id, props);
 
+    const stageLower = props.stage.toLowerCase();
+
     const dispatchLambda = new NodejsFunction(this, "DispatchLambda", {
       functionName: `OrderGoods-${props.stage}-DispatchHandler`,
       entry: join(__dirname, "..", "lambdas", "dispatch", "handler.ts"),
       handler: "dispatchHandler",
       runtime: Runtime.NODEJS_22_X,
+      timeout: Duration.minutes(15),
       bundling: {
         forceDockerBundling: false,
       },
       environment: {
         RECIPIENT_EMAIL: process.env.RECIPIENT_EMAIL || "",
-        ECS_CLUSTER_ARN: props.ecsClusterArn,
-        ECS_TASK_DEFINITION_ARN: props.ecsTaskDefinitionArn,
-        ECS_SUBNET_IDS: props.ecsSubnetIds,
-        ECS_SECURITY_GROUP_IDS: props.ecsSecurityGroupIds,
-        ECS_LOG_GROUP: props.ecsLogGroupName,
+        STAGE: props.stage,
       },
     });
 
@@ -61,7 +56,7 @@ export class OrderGoodsDispatchStack extends Stack {
     dispatchLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ["ecs:RunTask"],
+        actions: ["ecs:RunTask", "ecs:DescribeTasks"],
         resources: ["*"],
       }),
     );
@@ -79,6 +74,16 @@ export class OrderGoodsDispatchStack extends Stack {
         effect: Effect.ALLOW,
         actions: ["logs:GetLogEvents"],
         resources: ["*"],
+      }),
+    );
+
+    dispatchLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["ssm:GetParameter"],
+        resources: [
+          `arn:aws:ssm:*:*:parameter/order-goods/${stageLower}/*`,
+        ],
       }),
     );
   }

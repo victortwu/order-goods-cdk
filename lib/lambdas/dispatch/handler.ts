@@ -41,6 +41,14 @@ async function sendVendorEmail(
   );
 }
 
+/**
+ * Normalizes a vendorID to the SSM parameter convention.
+ * e.g., "RESTAURANT_DEPOT" → "restaurant-depot"
+ */
+function normalizeVendorId(vendorID: string): string {
+  return vendorID.toLowerCase().replace(/_/g, "-");
+}
+
 export const dispatchHandler = async (
   event: DynamoDBStreamEvent,
 ): Promise<void> => {
@@ -79,9 +87,10 @@ export const dispatchHandler = async (
       const vendorGroup = buildVendorGroup(orderId, vendorId, items);
 
       if (vendorId === "RESTAURANT_DEPOT") {
-        // Task 6.5: RESTAURANT_DEPOT routing — invoke Playwright bot via ECS/Fargate
+        // Invoke Playwright bot via ECS/Fargate
+        const normalizedVendorId = normalizeVendorId(vendorId);
         try {
-          const orderResult = await invokePlaywrightTask(vendorGroup);
+          const orderResult = await invokePlaywrightTask(vendorGroup, normalizedVendorId);
 
           // Inner try/catch: email failure should not trigger fallback
           try {

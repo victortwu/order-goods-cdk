@@ -29,6 +29,7 @@
     "@aws-sdk/client-dynamodb": "^3.1030.0",
     "@aws-sdk/client-ecs": "^3.1032.0",
     "@aws-sdk/client-ses": "^3.1030.0",
+    "@aws-sdk/client-ssm": "^3.1030.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",
     "@types/uuid": "^9.0.7",
     "aws-cdk-lib": "^2.249.0",

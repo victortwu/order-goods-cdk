@@ -17,12 +17,6 @@ describe("OrderGoodsDispatchStack", () => {
       {
         stage: "Test",
         orderedListTable: dataStack.orderedListTable,
-        ecsClusterArn: "arn:aws:ecs:us-east-1:123456789012:cluster/TestCluster",
-        ecsTaskDefinitionArn:
-          "arn:aws:ecs:us-east-1:123456789012:task-definition/TestTaskDef:1",
-        ecsSubnetIds: "subnet-abc123,subnet-def456",
-        ecsSecurityGroupIds: "sg-abc123",
-        ecsLogGroupName: "/ecs/test-playwright-bot",
       },
     );
     template = Template.fromStack(dispatchStack);
@@ -34,11 +28,12 @@ describe("OrderGoodsDispatchStack", () => {
     });
   });
 
-  test("Lambda has RECIPIENT_EMAIL environment variable", () => {
+  test("Lambda has STAGE and RECIPIENT_EMAIL environment variables", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: {
         Variables: {
           RECIPIENT_EMAIL: Match.anyValue(),
+          STAGE: "Test",
         },
       },
     });
@@ -64,28 +59,12 @@ describe("OrderGoodsDispatchStack", () => {
     });
   });
 
-  test("Lambda has ECS environment variables", () => {
-    template.hasResourceProperties("AWS::Lambda::Function", {
-      Environment: {
-        Variables: {
-          ECS_CLUSTER_ARN:
-            "arn:aws:ecs:us-east-1:123456789012:cluster/TestCluster",
-          ECS_TASK_DEFINITION_ARN:
-            "arn:aws:ecs:us-east-1:123456789012:task-definition/TestTaskDef:1",
-          ECS_SUBNET_IDS: "subnet-abc123,subnet-def456",
-          ECS_SECURITY_GROUP_IDS: "sg-abc123",
-          ECS_LOG_GROUP: "/ecs/test-playwright-bot",
-        },
-      },
-    });
-  });
-
-  test("IAM policy grants ecs:RunTask", () => {
+  test("IAM policy grants ecs:RunTask and ecs:DescribeTasks", () => {
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: "ecs:RunTask",
+            Action: Match.arrayWith(["ecs:RunTask", "ecs:DescribeTasks"]),
             Effect: "Allow",
           }),
         ]),
@@ -112,6 +91,19 @@ describe("OrderGoodsDispatchStack", () => {
         Statement: Match.arrayWith([
           Match.objectLike({
             Action: "logs:GetLogEvents",
+            Effect: "Allow",
+          }),
+        ]),
+      },
+    });
+  });
+
+  test("IAM policy grants ssm:GetParameter", () => {
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "ssm:GetParameter",
             Effect: "Allow",
           }),
         ]),

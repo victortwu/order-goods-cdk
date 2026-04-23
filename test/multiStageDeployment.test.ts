@@ -41,13 +41,6 @@ describe("Multi-Stage Deployment", () => {
         new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
           stage,
           orderedListTable: dataStack.orderedListTable,
-          ecsClusterArn:
-            "arn:aws:ecs:us-east-1:123456789012:cluster/TestCluster",
-          ecsTaskDefinitionArn:
-            "arn:aws:ecs:us-east-1:123456789012:task-definition/TestTaskDef:1",
-          ecsSubnetIds: "subnet-abc123,subnet-def456",
-          ecsSecurityGroupIds: "sg-abc123",
-          ecsLogGroupName: "/ecs/test-playwright-bot",
         });
       }
 
@@ -236,13 +229,6 @@ describe("Multi-Stage Deployment", () => {
         {
           stage: "Beta",
           orderedListTable: dataStack.orderedListTable,
-          ecsClusterArn:
-            "arn:aws:ecs:us-east-1:123456789012:cluster/TestCluster",
-          ecsTaskDefinitionArn:
-            "arn:aws:ecs:us-east-1:123456789012:task-definition/TestTaskDef:1",
-          ecsSubnetIds: "subnet-abc123,subnet-def456",
-          ecsSecurityGroupIds: "sg-abc123",
-          ecsLogGroupName: "/ecs/test-playwright-bot",
         },
       );
       const template = Template.fromStack(dispatchStack);
