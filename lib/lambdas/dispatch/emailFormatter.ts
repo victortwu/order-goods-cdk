@@ -1,32 +1,15 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { OrderResult, VendorGroup } from "./constants/types";
-
-// --- SES client (created once per Lambda cold start, same pattern as handler.ts) ---
+import { OrderResult, VendorGroup, RESTAURANT_INFO } from "./constants/types";
 
 const sesClient = new SESClient({});
 
-// --- Pure formatting functions (testable without AWS SDK mocking) ---
+// --- Pure formatting functions ---
 
-/**
- * Builds the email subject line for an OrderResult notification.
- * Contains both the orderId and the status so the recipient can
- * identify the outcome at a glance.
- *
- * Requirements: 10.6
- */
 export const formatOrderResultSubject = (
   orderId: string,
   status: string,
 ): string => `Restaurant Depot Order ${orderId} — ${status}`;
 
-/**
- * Builds a plain-text email body summarising an OrderResult.
- * Includes orderId, status, timestamp, itemsAdded, itemsNotAdded,
- * and any error message.  Produces a non-empty string for every
- * possible OrderResultStatus.
- *
- * Requirements: 10.1, 10.2, 10.3, 10.4
- */
 export const formatOrderResultBody = (result: OrderResult): string => {
   const lines: string[] = [];
 
@@ -35,7 +18,6 @@ export const formatOrderResultBody = (result: OrderResult): string => {
   lines.push(`Time:     ${result.timestamp}`);
   lines.push("");
 
-  // Items successfully added
   if (result.itemsAdded.length > 0) {
     lines.push(`Items Added (${result.itemsAdded.length}):`);
     for (const item of result.itemsAdded) {
@@ -46,7 +28,6 @@ export const formatOrderResultBody = (result: OrderResult): string => {
     lines.push("");
   }
 
-  // Items that were not added
   if (result.itemsNotAdded.length > 0) {
     lines.push(`Items Not Added (${result.itemsNotAdded.length}):`);
     for (const item of result.itemsNotAdded) {
@@ -57,7 +38,6 @@ export const formatOrderResultBody = (result: OrderResult): string => {
     lines.push("");
   }
 
-  // Error message (present for error statuses)
   if (result.errorMessage) {
     lines.push(`Error: ${result.errorMessage}`);
     lines.push("");
@@ -66,13 +46,22 @@ export const formatOrderResultBody = (result: OrderResult): string => {
   return lines.join("\n");
 };
 
+/**
+ * Formats a Westcoast Pita order email body.
+ * Lists each item as: productName — qty unitType
+ */
+export const formatWestcoastPitaBody = (vendorGroup: VendorGroup): string => {
+  const { name, address, contactName } = RESTAURANT_INFO;
+
+  const itemLines = vendorGroup.items
+    .map((item) => `${item.qty} ${item.productName}`)
+    .join("\n");
+
+  return `Hello, we would like to order:\n\n${itemLines}\n\nThank you,\n${contactName}\n\n${name}\n${address}`;
+};
+
 // --- Email sending functions ---
 
-/**
- * Sends an OrderResult summary email via SES.
- *
- * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
- */
 export const sendOrderResultEmail = async (
   result: OrderResult,
   recipient: string,
@@ -81,30 +70,18 @@ export const sendOrderResultEmail = async (
 
   await sesClient.send(
     new SendEmailCommand({
-      Destination: {
-        ToAddresses: [recipient],
-      },
+      Destination: { ToAddresses: [recipient] },
       Message: {
         Subject: {
           Data: formatOrderResultSubject(result.orderId, result.status),
         },
-        Body: {
-          Text: {
-            Data: formatOrderResultBody(result),
-          },
-        },
+        Body: { Text: { Data: formatOrderResultBody(result) } },
       },
       Source: sourceEmail!,
     }),
   );
 };
 
-/**
- * Sends a fallback email containing the raw VendorGroup payload.
- * Used when the Playwright bot invocation fails entirely.
- *
- * Requirements: 9.5, 10.7
- */
 export const sendFallbackEmail = async (
   vendorGroup: VendorGroup,
   recipient: string,
@@ -113,20 +90,70 @@ export const sendFallbackEmail = async (
 
   await sesClient.send(
     new SendEmailCommand({
-      Destination: {
-        ToAddresses: [recipient],
-      },
+      Destination: { ToAddresses: [recipient] },
       Message: {
         Subject: {
           Data: `Restaurant Depot Order ${vendorGroup.orderId} — Automation Failed (Fallback)`,
         },
-        Body: {
-          Text: {
-            Data: JSON.stringify(vendorGroup, null, 2),
-          },
-        },
+        Body: { Text: { Data: JSON.stringify(vendorGroup, null, 2) } },
       },
       Source: sourceEmail!,
+    }),
+  );
+};
+
+/**
+ * Sends a vendor order email and a notification copy to the owner.
+ * - Sends the formatted email to vendorEmail
+ * - Always sends a notification to notificationEmail with the same content
+ *   (plus error details if the vendor email failed)
+ */
+export const sendVendorOrderEmail = async (params: {
+  vendorEmail: string;
+  notificationEmail: string;
+  subject: string;
+  body: string;
+}): Promise<void> => {
+  const { vendorEmail, notificationEmail, subject, body } = params;
+  const sourceEmail = process.env.RECIPIENT_EMAIL!;
+
+  let vendorError: string | undefined;
+
+  // Send to vendor
+  try {
+    await sesClient.send(
+      new SendEmailCommand({
+        Destination: { ToAddresses: [vendorEmail] },
+        Message: {
+          Subject: { Data: subject },
+          Body: { Text: { Data: body } },
+        },
+        Source: sourceEmail,
+      }),
+    );
+  } catch (error) {
+    vendorError =
+      error instanceof Error ? error.message : "Unknown email error";
+    console.error(`Failed to send vendor email to ${vendorEmail}:`, error);
+  }
+
+  // Send notification to self (always)
+  const notificationBody = vendorError
+    ? `${body}\n\n--- EMAIL SEND ERROR ---\nFailed to send to ${vendorEmail}: ${vendorError}`
+    : `${body}\n\n--- Sent to: ${vendorEmail} ---`;
+
+  await sesClient.send(
+    new SendEmailCommand({
+      Destination: { ToAddresses: [notificationEmail] },
+      Message: {
+        Subject: {
+          Data: vendorError
+            ? `[FAILED] ${subject}`
+            : `[Notification] ${subject}`,
+        },
+        Body: { Text: { Data: notificationBody } },
+      },
+      Source: sourceEmail,
     }),
   );
 };

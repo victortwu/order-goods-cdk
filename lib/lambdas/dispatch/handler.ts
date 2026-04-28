@@ -2,64 +2,55 @@ import { DynamoDBStreamEvent } from "aws-lambda";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { AttributeValue } from "@aws-sdk/client-dynamodb";
-import { OrderItemRecord, VendorGroup } from "./constants/types";
+import { OrderItemRecord, RESTAURANT_INFO, VendorGroup, VendorID } from "./constants/types";
 import {
   groupItemsByVendor,
   buildVendorGroup,
   formatVendorSubject,
+  normalizeVendorId,
 } from "./vendorRouter";
 import { invokePlaywrightTask } from "./ecsInvoker";
-import { sendOrderResultEmail, sendFallbackEmail } from "./emailFormatter";
+import {
+  sendOrderResultEmail,
+  sendFallbackEmail,
+  sendVendorOrderEmail,
+  formatWestcoastPitaBody,
+} from "./emailFormatter";
+import { getVendorEmail } from "./ssmConfig";
 
 const sesClient = new SESClient({});
 
 /**
- * Sends a vendor order email via SES (the original email path for non-RESTAURANT_DEPOT vendors).
+ * Sends a generic vendor order email via SES (fallback for vendors without specific handling).
  */
-const sendVendorEmail = async (
+const sendGenericVendorEmail = async (
   vendorGroup: VendorGroup,
   recipientEmail: string,
 ): Promise<void> => {
   await sesClient.send(
     new SendEmailCommand({
-      Destination: {
-        ToAddresses: [recipientEmail],
-      },
+      Destination: { ToAddresses: [recipientEmail] },
       Message: {
-        Subject: {
-          Data: formatVendorSubject(vendorGroup.vendorID),
-        },
-        Body: {
-          Text: {
-            Data: JSON.stringify(vendorGroup, null, 2),
-          },
-        },
+        Subject: { Data: formatVendorSubject(vendorGroup.vendorID) },
+        Body: { Text: { Data: JSON.stringify(vendorGroup, null, 2) } },
       },
       Source: recipientEmail,
     }),
   );
 };
 
-/**
- * Normalizes a vendorID to the SSM parameter convention.
- * e.g., "RESTAURANT_DEPOT" → "restaurant-depot"
- */
-const normalizeVendorId = (vendorID: string): string =>
-  vendorID.toLowerCase().replace(/_/g, "-");
-
 export const dispatchHandler = async (
   event: DynamoDBStreamEvent,
 ): Promise<void> => {
-  const recipientEmail = process.env.RECIPIENT_EMAIL;
+  const recipientEmail = process.env.RECIPIENT_EMAIL!;
+  const stage = process.env.STAGE!;
 
   for (const record of event.Records) {
-    // INSERT-only filtering
     if (record.eventName !== "INSERT") {
       console.debug(`Skipping ${record.eventName} event`);
       continue;
     }
 
-    // Unmarshall NewImage
     if (!record.dynamodb?.NewImage) {
       console.error("Missing dynamodb.NewImage on INSERT record", {
         eventID: record.eventID,
@@ -78,56 +69,76 @@ export const dispatchHandler = async (
       continue;
     }
 
-    // Vendor routing
     const vendorGroups = groupItemsByVendor(list);
 
     for (const [vendorId, items] of vendorGroups) {
       const vendorGroup = buildVendorGroup(orderId, vendorId, items);
 
-      if (vendorId === "RESTAURANT_DEPOT") {
-        // Invoke Playwright bot via ECS/Fargate
-        const normalizedVendorId = normalizeVendorId(vendorId);
-        try {
-          const orderResult = await invokePlaywrightTask(
-            vendorGroup,
-            normalizedVendorId,
-          );
-
-          // Inner try/catch: email failure should not trigger fallback
+      switch (vendorId) {
+        case VendorID.RESTAURANT_DEPOT: {
+          const normalizedVendorId = normalizeVendorId(vendorId);
           try {
-            await sendOrderResultEmail(orderResult, recipientEmail!);
-          } catch (emailError) {
-            console.error(
-              `Failed to send OrderResult email for order ${orderId}:`,
-              emailError,
+            const orderResult = await invokePlaywrightTask(
+              vendorGroup,
+              normalizedVendorId,
             );
-          }
-        } catch (error) {
-          console.error(
-            `Playwright invocation failed for order ${orderId}:`,
-            error,
-          );
-
-          // Send fallback email with VendorGroup payload; wrap in try/catch
-          // so a fallback email failure doesn't break the loop
-          try {
-            await sendFallbackEmail(vendorGroup, recipientEmail!);
-          } catch (fallbackError) {
+            try {
+              await sendOrderResultEmail(orderResult, recipientEmail);
+            } catch (emailError) {
+              console.error(
+                `Failed to send OrderResult email for order ${orderId}:`,
+                emailError,
+              );
+            }
+          } catch (error) {
             console.error(
-              `Failed to send fallback email for order ${orderId}:`,
-              fallbackError,
+              `Playwright invocation failed for order ${orderId}:`,
+              error,
             );
+            try {
+              await sendFallbackEmail(vendorGroup, recipientEmail);
+            } catch (fallbackError) {
+              console.error(
+                `Failed to send fallback email for order ${orderId}:`,
+                fallbackError,
+              );
+            }
           }
+          break;
         }
-      } else {
-        // Existing SES email path for all other vendors
-        try {
-          await sendVendorEmail(vendorGroup, recipientEmail!);
-        } catch (error) {
-          console.error(
-            `Failed to send email for vendor ${vendorId}, order ${orderId}:`,
-            error,
-          );
+
+        case VendorID.WESTCOAST_PITA: {
+          try {
+            const normalizedVendorId = normalizeVendorId(vendorId);
+            const vendorEmail = await getVendorEmail(stage, normalizedVendorId);
+            const subject = `Order for ${RESTAURANT_INFO.name}`;
+            const body = formatWestcoastPitaBody(vendorGroup);
+
+            await sendVendorOrderEmail({
+              vendorEmail,
+              notificationEmail: recipientEmail,
+              subject,
+              body,
+            });
+          } catch (error) {
+            console.error(
+              `Failed to process WESTCOAST_PITA for order ${orderId}:`,
+              error,
+            );
+          }
+          break;
+        }
+
+        default: {
+          try {
+            await sendGenericVendorEmail(vendorGroup, recipientEmail);
+          } catch (error) {
+            console.error(
+              `Failed to send email for vendor ${vendorId}, order ${orderId}:`,
+              error,
+            );
+          }
+          break;
         }
       }
     }

@@ -1,5 +1,24 @@
 // Shared types for the dispatch Lambda
 
+// --- Vendor ID ---
+
+export enum VendorID {
+  RESTAURANT_DEPOT = "RESTAURANT_DEPOT",
+  WESTCOAST_PITA = "WESTCOAST_PITA",
+  FRANZ_BAKERY = "FRANZ_BAKERY",
+  AMAZON = "AMAZON",
+  INSTACART_US_FOODS = "INSTACART_US_FOODS",
+  UNKNOWN = "UNKNOWN",
+}
+
+// --- Restaurant Info ---
+
+export const RESTAURANT_INFO = {
+  name: "The Berliner Döner Kebab",
+  address: "428 Westlake Ave N\nSuite 101\nSeattle, WA 98109",
+  contactName: "Victor Twu",
+} as const;
+
 // --- Order Item Types ---
 
 export interface OrderItemRecord {

@@ -1,6 +1,6 @@
 // Pure-logic vendor routing module — NO AWS SDK imports, NO side effects.
 
-import { OrderItemRecord, VendorGroup } from "./constants/types";
+import { OrderItemRecord, VendorGroup, VendorID } from "./constants/types";
 
 /**
  * Groups items by `productData.vendorID`.
@@ -13,7 +13,7 @@ export const groupItemsByVendor = (
   const groups = new Map<string, OrderItemRecord[]>();
 
   for (const item of items) {
-    const vendorId = item.productData?.vendorID || "UNKNOWN";
+    const vendorId = item.productData?.vendorID || VendorID.UNKNOWN;
     const existing = groups.get(vendorId);
     if (existing) {
       existing.push(item);
@@ -53,3 +53,10 @@ export const formatVendorSubject = (vendorId: string): string => {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
   return words.join(" ") + " Order";
 };
+
+/**
+ * Normalizes a vendorID to the SSM parameter convention.
+ * e.g., "RESTAURANT_DEPOT" → "restaurant-depot"
+ */
+export const normalizeVendorId = (vendorID: string): string =>
+  vendorID.toLowerCase().replace(/_/g, "-");

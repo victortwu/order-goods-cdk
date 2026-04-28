@@ -36,3 +36,15 @@ export const getVendorConfig = async (
     ]);
   return { taskDefinitionArn, taskDefinitionFamily, logGroupName };
 };
+
+/**
+ * Reads the vendor recipient email from SSM.
+ * Path: /order-goods/{stage}/{vendorId}/recipient-email
+ */
+export const getVendorEmail = async (
+  stage: string,
+  vendorId: string,
+): Promise<string> => {
+  const param = `/order-goods/${stage.toLowerCase()}/${vendorId}/recipient-email`;
+  return getParam(param);
+};
