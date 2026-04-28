@@ -2,12 +2,11 @@ import { DynamoDBStreamEvent } from "aws-lambda";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { OrderItemRecord, VendorGroup } from "./constants/types";
 import {
   groupItemsByVendor,
   buildVendorGroup,
   formatVendorSubject,
-  VendorGroup,
-  OrderItemRecord,
 } from "./vendorRouter";
 import { invokePlaywrightTask } from "./ecsInvoker";
 import { sendOrderResultEmail, sendFallbackEmail } from "./emailFormatter";
@@ -17,10 +16,10 @@ const sesClient = new SESClient({});
 /**
  * Sends a vendor order email via SES (the original email path for non-RESTAURANT_DEPOT vendors).
  */
-async function sendVendorEmail(
+const sendVendorEmail = async (
   vendorGroup: VendorGroup,
   recipientEmail: string,
-): Promise<void> {
+): Promise<void> => {
   await sesClient.send(
     new SendEmailCommand({
       Destination: {
@@ -39,15 +38,14 @@ async function sendVendorEmail(
       Source: recipientEmail,
     }),
   );
-}
+};
 
 /**
  * Normalizes a vendorID to the SSM parameter convention.
  * e.g., "RESTAURANT_DEPOT" → "restaurant-depot"
  */
-function normalizeVendorId(vendorID: string): string {
-  return vendorID.toLowerCase().replace(/_/g, "-");
-}
+const normalizeVendorId = (vendorID: string): string =>
+  vendorID.toLowerCase().replace(/_/g, "-");
 
 export const dispatchHandler = async (
   event: DynamoDBStreamEvent,
@@ -55,13 +53,13 @@ export const dispatchHandler = async (
   const recipientEmail = process.env.RECIPIENT_EMAIL;
 
   for (const record of event.Records) {
-    // Task 3.2: INSERT-only filtering
+    // INSERT-only filtering
     if (record.eventName !== "INSERT") {
       console.debug(`Skipping ${record.eventName} event`);
       continue;
     }
 
-    // Task 3.3: Unmarshall NewImage
+    // Unmarshall NewImage
     if (!record.dynamodb?.NewImage) {
       console.error("Missing dynamodb.NewImage on INSERT record", {
         eventID: record.eventID,
@@ -80,7 +78,7 @@ export const dispatchHandler = async (
       continue;
     }
 
-    // Task 3.4: Vendor routing
+    // Vendor routing
     const vendorGroups = groupItemsByVendor(list);
 
     for (const [vendorId, items] of vendorGroups) {
@@ -90,7 +88,10 @@ export const dispatchHandler = async (
         // Invoke Playwright bot via ECS/Fargate
         const normalizedVendorId = normalizeVendorId(vendorId);
         try {
-          const orderResult = await invokePlaywrightTask(vendorGroup, normalizedVendorId);
+          const orderResult = await invokePlaywrightTask(
+            vendorGroup,
+            normalizedVendorId,
+          );
 
           // Inner try/catch: email failure should not trigger fallback
           try {

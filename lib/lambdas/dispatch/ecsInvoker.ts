@@ -7,33 +7,8 @@ import {
   CloudWatchLogsClient,
   GetLogEventsCommand,
 } from "@aws-sdk/client-cloudwatch-logs";
-import { VendorGroup } from "./vendorRouter";
+import { VendorGroup, OrderResult } from "./constants/types";
 import { getSharedConfig, getVendorConfig } from "./ssmConfig";
-
-export type OrderResultStatus =
-  | "success"
-  | "partial_success"
-  | "failure"
-  | "auth_failure"
-  | "connection_failure"
-  | "credential_failure"
-  | "browser_failure"
-  | "timeout"
-  | "delivery_unavailable";
-
-export interface OrderResult {
-  orderId: string;
-  status: OrderResultStatus;
-  timestamp: string;
-  itemsAdded: Array<{ productName: string; qty: number; unitType: string }>;
-  itemsNotAdded: Array<{
-    productName: string;
-    qty: number;
-    unitType: string;
-    reason: string;
-  }>;
-  errorMessage?: string;
-}
 
 const POLL_INTERVAL_MS = 10_000;
 const MAX_POLL_ATTEMPTS = 180;
@@ -41,20 +16,19 @@ const MAX_POLL_ATTEMPTS = 180;
 const ecsClient = new ECSClient({});
 const cwlClient = new CloudWatchLogsClient({});
 
-function extractTaskId(taskArn: string): string {
+const extractTaskId = (taskArn: string): string => {
   const segments = taskArn.split("/");
   return segments[segments.length - 1];
-}
+};
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
-async function waitForTaskCompletion(
+const waitForTaskCompletion = async (
   cluster: string,
   taskArn: string,
   containerName: string,
-): Promise<void> {
+): Promise<void> => {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     const resp = await ecsClient.send(
       new DescribeTasksCommand({ cluster, tasks: [taskArn] }),
@@ -67,9 +41,7 @@ async function waitForTaskCompletion(
     );
 
     if (task.lastStatus === "STOPPED") {
-      const container = task.containers?.find(
-        (c) => c.name === containerName,
-      );
+      const container = task.containers?.find((c) => c.name === containerName);
       if (container && container.exitCode !== 0) {
         console.warn(
           `Container ${containerName} exited with code ${container.exitCode}: ${container.reason ?? "no reason"}`,
@@ -82,13 +54,13 @@ async function waitForTaskCompletion(
   throw new Error(
     `ECS task ${taskArn} did not stop within ${(MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000}s`,
   );
-}
+};
 
-async function retrieveOrderResultFromLogs(
+const retrieveOrderResultFromLogs = async (
   logGroupName: string,
   containerName: string,
   taskId: string,
-): Promise<OrderResult> {
+): Promise<OrderResult> => {
   const logStream = `${containerName}/${containerName}/${taskId}`;
 
   const response = await cwlClient.send(
@@ -121,16 +93,16 @@ async function retrieveOrderResultFromLogs(
   throw new Error(
     `Could not find a valid OrderResult JSON in logs for task ${taskId}`,
   );
-}
+};
 
 /**
  * Invokes the Playwright order bot as an ECS/Fargate task and returns the OrderResult.
  * Reads all infrastructure config from SSM Parameter Store (cached per cold start).
  */
-export async function invokePlaywrightTask(
+export const invokePlaywrightTask = async (
   vendorGroup: VendorGroup,
   vendorId: string,
-): Promise<OrderResult> {
+): Promise<OrderResult> => {
   const stage = process.env.STAGE;
   if (!stage) throw new Error("STAGE environment variable is not set");
 
@@ -150,7 +122,7 @@ export async function invokePlaywrightTask(
   const runResp = await ecsClient.send(
     new RunTaskCommand({
       cluster: shared.clusterArn,
-      taskDefinition: vendor.taskDefinitionArn,
+      taskDefinition: vendor.taskDefinitionFamily,
       launchType: "FARGATE",
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -201,4 +173,4 @@ export async function invokePlaywrightTask(
   );
 
   return orderResult;
-}
+};

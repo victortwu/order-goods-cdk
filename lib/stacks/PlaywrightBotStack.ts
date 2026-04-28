@@ -86,6 +86,11 @@ export class PlaywrightBotStack extends Stack {
       stringValue: taskDefinition.taskDefinitionArn,
     });
 
+    new ssm.StringParameter(this, "TaskDefFamilyParam", {
+      parameterName: `${prefix}/task-definition-family`,
+      stringValue: taskDefinition.family,
+    });
+
     new ssm.StringParameter(this, "LogGroupNameParam", {
       parameterName: `${prefix}/log-group-name`,
       stringValue: logGroup.logGroupName,

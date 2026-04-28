@@ -1,6 +1,5 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { OrderResult } from "./ecsInvoker";
-import { VendorGroup } from "./vendorRouter";
+import { OrderResult, VendorGroup } from "./constants/types";
 
 // --- SES client (created once per Lambda cold start, same pattern as handler.ts) ---
 
@@ -15,12 +14,10 @@ const sesClient = new SESClient({});
  *
  * Requirements: 10.6
  */
-export function formatOrderResultSubject(
+export const formatOrderResultSubject = (
   orderId: string,
   status: string,
-): string {
-  return `Restaurant Depot Order ${orderId} — ${status}`;
-}
+): string => `Restaurant Depot Order ${orderId} — ${status}`;
 
 /**
  * Builds a plain-text email body summarising an OrderResult.
@@ -30,7 +27,7 @@ export function formatOrderResultSubject(
  *
  * Requirements: 10.1, 10.2, 10.3, 10.4
  */
-export function formatOrderResultBody(result: OrderResult): string {
+export const formatOrderResultBody = (result: OrderResult): string => {
   const lines: string[] = [];
 
   lines.push(`Order ID: ${result.orderId}`);
@@ -67,7 +64,7 @@ export function formatOrderResultBody(result: OrderResult): string {
   }
 
   return lines.join("\n");
-}
+};
 
 // --- Email sending functions ---
 
@@ -76,10 +73,10 @@ export function formatOrderResultBody(result: OrderResult): string {
  *
  * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
  */
-export async function sendOrderResultEmail(
+export const sendOrderResultEmail = async (
   result: OrderResult,
   recipient: string,
-): Promise<void> {
+): Promise<void> => {
   const sourceEmail = process.env.RECIPIENT_EMAIL;
 
   await sesClient.send(
@@ -100,7 +97,7 @@ export async function sendOrderResultEmail(
       Source: sourceEmail!,
     }),
   );
-}
+};
 
 /**
  * Sends a fallback email containing the raw VendorGroup payload.
@@ -108,10 +105,10 @@ export async function sendOrderResultEmail(
  *
  * Requirements: 9.5, 10.7
  */
-export async function sendFallbackEmail(
+export const sendFallbackEmail = async (
   vendorGroup: VendorGroup,
   recipient: string,
-): Promise<void> {
+): Promise<void> => {
   const sourceEmail = process.env.RECIPIENT_EMAIL;
 
   await sesClient.send(
@@ -132,4 +129,4 @@ export async function sendFallbackEmail(
       Source: sourceEmail!,
     }),
   );
-}
+};
