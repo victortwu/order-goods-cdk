@@ -3,6 +3,7 @@ import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { addCorsHeader } from "../utils/addCorsHeader";
 import { postProduct } from "./postProducts";
 import { getProducts } from "./getProducts";
+import { putProduct } from "./putProduct";
 
 const ddbClient = new DynamoDBClient();
 
@@ -24,6 +25,10 @@ const goodsHandler = async (
       case "POST":
         const postResponse = await postProduct(event, ddbClient);
         response = postResponse;
+        break;
+      case "PUT":
+        const putResponse = await putProduct(event, ddbClient);
+        response = putResponse;
         break;
       default:
         break;

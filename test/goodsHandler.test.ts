@@ -3,6 +3,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 import { getProducts } from "../lib/lambdas/goods/getProducts";
 import { postProduct } from "../lib/lambdas/goods/postProducts";
+import { putProduct } from "../lib/lambdas/goods/putProduct";
 
 // --- Mock DynamoDB client ---
 
@@ -160,5 +161,66 @@ describe("postProduct", () => {
     const body = JSON.parse(response.body);
     expect(body.id).toBe("test-uuid-1234");
     expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("putProduct", () => {
+  beforeEach(() => {
+    mockSend.mockReset();
+  });
+
+  test("updates a product and returns 200 with id", async () => {
+    // arrange
+    const event = {
+      httpMethod: "PUT",
+      body: JSON.stringify({
+        id: "prod-1",
+        vendorProductName: "Whole Chicken Fryer",
+        upc: "12345678",
+      }),
+    } as unknown as APIGatewayEvent;
+
+    mockSend.mockResolvedValue({});
+
+    // act
+    const ddbClient = new DynamoDBClient();
+    const response = await putProduct(event, ddbClient);
+
+    // assert
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).id).toBe("prod-1");
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  test("returns 400 when id is missing", async () => {
+    // arrange
+    const event = {
+      httpMethod: "PUT",
+      body: JSON.stringify({ vendorProductName: "Test" }),
+    } as unknown as APIGatewayEvent;
+
+    // act
+    const ddbClient = new DynamoDBClient();
+    const response = await putProduct(event, ddbClient);
+
+    // assert
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toBe("id is required");
+  });
+
+  test("returns 400 when no fields to update", async () => {
+    // arrange
+    const event = {
+      httpMethod: "PUT",
+      body: JSON.stringify({ id: "prod-1" }),
+    } as unknown as APIGatewayEvent;
+
+    // act
+    const ddbClient = new DynamoDBClient();
+    const response = await putProduct(event, ddbClient);
+
+    // assert
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toBe("No fields to update");
   });
 });

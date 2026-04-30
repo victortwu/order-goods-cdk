@@ -49,6 +49,7 @@ export class OrderGoodsApiStack extends Stack {
     const listsResource = api.root.addResource("lists", optionsWithCors);
 
     goodsResource.addMethod("GET", props.goodsLambdaIntegration);
+    goodsResource.addMethod("PUT", props.goodsLambdaIntegration);
 
     listsResource.addMethod("GET", props.listsLambdaIntegration);
     listsResource.addMethod("POST", props.listsLambdaIntegration);

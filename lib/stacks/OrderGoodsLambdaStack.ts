@@ -43,6 +43,7 @@ export class OrderGoodsLambdaStack extends Stack {
           "dynamodb:GetItem",
           "dynamodb:Scan",
           "dynamodb:Query",
+          "dynamodb:UpdateItem",
         ],
       }),
     );
