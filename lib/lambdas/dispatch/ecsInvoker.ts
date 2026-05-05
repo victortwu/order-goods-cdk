@@ -138,7 +138,19 @@ export const invokePlaywrightTask = async (
             environment: [
               {
                 name: "VENDOR_GROUP_PAYLOAD",
-                value: JSON.stringify(vendorGroup),
+                value: JSON.stringify({
+                  orderId: vendorGroup.orderId,
+                  vendorID: vendorGroup.vendorID,
+                  items: vendorGroup.items.map(({ productName, qty, unitType, productData }) => ({
+                    productName,
+                    qty,
+                    unitType,
+                    productData: {
+                      vendorProductName: productData.vendorProductName ?? "",
+                      upc: productData.upc ?? "",
+                    },
+                  })),
+                }),
               },
             ],
           },
