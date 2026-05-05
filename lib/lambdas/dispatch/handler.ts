@@ -1,43 +1,22 @@
 import { DynamoDBStreamEvent } from "aws-lambda";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { AttributeValue } from "@aws-sdk/client-dynamodb";
-import { OrderItemRecord, RESTAURANT_INFO, VendorGroup, VendorID } from "./constants/types";
+import { OrderItemRecord, VendorID } from "./constants/types";
 import {
   groupItemsByVendor,
   buildVendorGroup,
-  formatVendorSubject,
   normalizeVendorId,
 } from "./vendorRouter";
-import { invokePlaywrightTask } from "./ecsInvoker";
 import {
-  sendOrderResultEmail,
-  sendFallbackEmail,
-  sendVendorOrderEmail,
-  formatWestcoastPitaBody,
-} from "./emailFormatter";
-import { getVendorEmail } from "./ssmConfig";
+  getSharedConfig,
+  getVendorConfig,
+  getVendorEmail,
+  getDispatchMethod,
+  getStateMachineArn,
+} from "./ssmConfig";
 
-const sesClient = new SESClient({});
-
-/**
- * Sends a generic vendor order email via SES (fallback for vendors without specific handling).
- */
-const sendGenericVendorEmail = async (
-  vendorGroup: VendorGroup,
-  recipientEmail: string,
-): Promise<void> => {
-  await sesClient.send(
-    new SendEmailCommand({
-      Destination: { ToAddresses: [recipientEmail] },
-      Message: {
-        Subject: { Data: formatVendorSubject(vendorGroup.vendorID) },
-        Body: { Text: { Data: JSON.stringify(vendorGroup, null, 2) } },
-      },
-      Source: recipientEmail,
-    }),
-  );
-};
+const sfnClient = new SFNClient({});
 
 export const dispatchHandler = async (
   event: DynamoDBStreamEvent,
@@ -45,11 +24,10 @@ export const dispatchHandler = async (
   const recipientEmail = process.env.RECIPIENT_EMAIL!;
   const stage = process.env.STAGE!;
 
+  const stateMachineArn = await getStateMachineArn(stage);
+
   for (const record of event.Records) {
-    if (record.eventName !== "INSERT") {
-      console.debug(`Skipping ${record.eventName} event`);
-      continue;
-    }
+    if (record.eventName !== "INSERT") continue;
 
     if (!record.dynamodb?.NewImage) {
       console.error("Missing dynamodb.NewImage on INSERT record", {
@@ -72,74 +50,70 @@ export const dispatchHandler = async (
     const vendorGroups = groupItemsByVendor(list);
 
     for (const [vendorId, items] of vendorGroups) {
+      const normalizedVendorId = normalizeVendorId(vendorId);
       const vendorGroup = buildVendorGroup(orderId, vendorId, items);
 
-      switch (vendorId) {
-        case VendorID.RESTAURANT_DEPOT: {
-          const normalizedVendorId = normalizeVendorId(vendorId);
-          try {
-            const orderResult = await invokePlaywrightTask(
-              vendorGroup,
-              normalizedVendorId,
-            );
-            try {
-              await sendOrderResultEmail(orderResult, recipientEmail);
-            } catch (emailError) {
-              console.error(
-                `Failed to send OrderResult email for order ${orderId}:`,
-                emailError,
-              );
-            }
-          } catch (error) {
-            console.error(
-              `Playwright invocation failed for order ${orderId}:`,
-              error,
-            );
-            try {
-              await sendFallbackEmail(vendorGroup, recipientEmail);
-            } catch (fallbackError) {
-              console.error(
-                `Failed to send fallback email for order ${orderId}:`,
-                fallbackError,
-              );
-            }
-          }
-          break;
+      try {
+        const dispatchMethod = await getDispatchMethod(stage, normalizedVendorId);
+
+        const executionInput: Record<string, unknown> = {
+          orderId,
+          vendorId: normalizedVendorId,
+          dispatchMethod,
+          vendorGroup,
+          recipientEmail,
+          stage,
+        };
+
+        if (dispatchMethod === "ecs_bot") {
+          const shared = await getSharedConfig(stage);
+          const vendor = await getVendorConfig(stage, normalizedVendorId);
+          executionInput.ecsConfig = {
+            clusterArn: shared.clusterArn,
+            subnets: shared.subnetIds.split(",").map((s) => s.trim()),
+            securityGroups: shared.securityGroupIds.split(",").map((s) => s.trim()),
+            taskDefinitionFamily: vendor.taskDefinitionFamily,
+            containerName: `${normalizedVendorId}-bot`,
+            logGroupName: vendor.logGroupName,
+          };
+          // Slim vendorGroup for ECS container override (8192 byte limit)
+          executionInput.vendorGroup = {
+            orderId: vendorGroup.orderId,
+            vendorID: vendorGroup.vendorID,
+            items: vendorGroup.items.map(({ productName, qty, unitType, productData }) => ({
+              productName,
+              qty,
+              unitType,
+              productData: {
+                vendorProductName: (productData as Record<string, unknown>).vendorProductName ?? "",
+                upc: (productData as Record<string, unknown>).upc ?? "",
+              },
+            })),
+          };
+        } else if (dispatchMethod === "email") {
+          const vendorEmail = await getVendorEmail(stage, normalizedVendorId);
+          executionInput.emailConfig = {
+            vendorEmail,
+            notificationEmail: recipientEmail,
+          };
         }
 
-        case VendorID.WESTCOAST_PITA: {
-          try {
-            const normalizedVendorId = normalizeVendorId(vendorId);
-            const vendorEmail = await getVendorEmail(stage, normalizedVendorId);
-            const subject = `Order for ${RESTAURANT_INFO.name}`;
-            const body = formatWestcoastPitaBody(vendorGroup);
+        await sfnClient.send(
+          new StartExecutionCommand({
+            stateMachineArn,
+            name: `${orderId}_${normalizedVendorId}`,
+            input: JSON.stringify(executionInput),
+          }),
+        );
 
-            await sendVendorOrderEmail({
-              vendorEmail,
-              notificationEmail: recipientEmail,
-              subject,
-              body,
-            });
-          } catch (error) {
-            console.error(
-              `Failed to process WESTCOAST_PITA for order ${orderId}:`,
-              error,
-            );
-          }
-          break;
-        }
-
-        default: {
-          try {
-            await sendGenericVendorEmail(vendorGroup, recipientEmail);
-          } catch (error) {
-            console.error(
-              `Failed to send email for vendor ${vendorId}, order ${orderId}:`,
-              error,
-            );
-          }
-          break;
-        }
+        console.log(
+          `Started execution for order ${orderId}, vendor ${vendorId} (${dispatchMethod})`,
+        );
+      } catch (error) {
+        console.error(
+          `Failed to start execution for order ${orderId}, vendor ${vendorId}:`,
+          error,
+        );
       }
     }
   }

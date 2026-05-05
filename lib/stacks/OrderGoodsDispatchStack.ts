@@ -28,7 +28,7 @@ export class OrderGoodsDispatchStack extends Stack {
       entry: join(__dirname, "..", "lambdas", "dispatch", "handler.ts"),
       handler: "dispatchHandler",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.minutes(15),
+      timeout: Duration.minutes(1),
       bundling: {
         forceDockerBundling: false,
       },
@@ -48,32 +48,10 @@ export class OrderGoodsDispatchStack extends Stack {
     dispatchLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ["ses:SendEmail", "ses:SendRawEmail"],
-        resources: ["*"],
-      }),
-    );
-
-    dispatchLambda.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["ecs:RunTask", "ecs:DescribeTasks"],
-        resources: ["*"],
-      }),
-    );
-
-    dispatchLambda.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["iam:PassRole"],
-        resources: ["*"],
-      }),
-    );
-
-    dispatchLambda.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["logs:GetLogEvents"],
-        resources: ["*"],
+        actions: ["states:StartExecution"],
+        resources: [
+          `arn:aws:states:*:*:stateMachine:OrderGoods-${props.stage}-OrderOrchestration`,
+        ],
       }),
     );
 

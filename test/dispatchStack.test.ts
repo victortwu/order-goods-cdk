@@ -28,6 +28,12 @@ describe("OrderGoodsDispatchStack", () => {
     });
   });
 
+  test("Lambda timeout is 1 minute", () => {
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Timeout: 60,
+    });
+  });
+
   test("Lambda has STAGE and RECIPIENT_EMAIL environment variables", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: {
@@ -46,52 +52,14 @@ describe("OrderGoodsDispatchStack", () => {
     });
   });
 
-  test("IAM policy grants ses:SendEmail", () => {
+  test("IAM policy grants states:StartExecution scoped to state machine", () => {
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith(["ses:SendEmail"]),
+            Action: "states:StartExecution",
             Effect: "Allow",
-          }),
-        ]),
-      },
-    });
-  });
-
-  test("IAM policy grants ecs:RunTask and ecs:DescribeTasks", () => {
-    template.hasResourceProperties("AWS::IAM::Policy", {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: Match.arrayWith(["ecs:RunTask", "ecs:DescribeTasks"]),
-            Effect: "Allow",
-          }),
-        ]),
-      },
-    });
-  });
-
-  test("IAM policy grants iam:PassRole", () => {
-    template.hasResourceProperties("AWS::IAM::Policy", {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: "iam:PassRole",
-            Effect: "Allow",
-          }),
-        ]),
-      },
-    });
-  });
-
-  test("IAM policy grants logs:GetLogEvents", () => {
-    template.hasResourceProperties("AWS::IAM::Policy", {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: "logs:GetLogEvents",
-            Effect: "Allow",
+            Resource: Match.stringLikeRegexp("OrderGoods-Test-OrderOrchestration"),
           }),
         ]),
       },
@@ -109,5 +77,27 @@ describe("OrderGoodsDispatchStack", () => {
         ]),
       },
     });
+  });
+
+  test("IAM policy does NOT grant ecs:RunTask (moved to orchestration stack)", () => {
+    const policies = template.findResources("AWS::IAM::Policy");
+    for (const [, policy] of Object.entries(policies)) {
+      const statements = (policy as any).Properties?.PolicyDocument?.Statement ?? [];
+      for (const stmt of statements) {
+        const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+        expect(actions).not.toContain("ecs:RunTask");
+      }
+    }
+  });
+
+  test("IAM policy does NOT grant ses:SendEmail (moved to orchestration stack)", () => {
+    const policies = template.findResources("AWS::IAM::Policy");
+    for (const [, policy] of Object.entries(policies)) {
+      const statements = (policy as any).Properties?.PolicyDocument?.Statement ?? [];
+      for (const stmt of statements) {
+        const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+        expect(actions).not.toContain("ses:SendEmail");
+      }
+    }
   });
 });

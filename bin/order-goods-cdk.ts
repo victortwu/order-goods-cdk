@@ -9,6 +9,7 @@ import { OrderGoodsDispatchStack } from "../lib/stacks/OrderGoodsDispatchStack";
 import { OrderGoodsFrontendStack } from "../lib/stacks/OrderGoodsFrontendStack";
 import { BotClusterStack } from "../lib/stacks/BotClusterStack";
 import { PlaywrightBotStack } from "../lib/stacks/PlaywrightBotStack";
+import { OrderGoodsOrchestrationStack } from "../lib/stacks/OrderGoodsOrchestrationStack";
 
 const app = new cdk.App();
 const stages = ["Beta", "Prod"];
@@ -63,6 +64,13 @@ for (const stage of stages) {
   );
   rdBotStack.addDependency(botClusterStack);
 
+  // Orchestration stack — Step Functions state machine + supporting Lambdas
+  const orchestrationStack = new OrderGoodsOrchestrationStack(
+    app,
+    `${stage}-OrderGoodsOrchestrationStack`,
+    { stage },
+  );
+
   // Dispatch stack — fully decoupled, reads SSM at runtime
   const dispatchStack = new OrderGoodsDispatchStack(
     app,
@@ -73,6 +81,7 @@ for (const stage of stages) {
     },
   );
   dispatchStack.addDependency(rdBotStack);
+  dispatchStack.addDependency(orchestrationStack);
 
   new OrderGoodsFrontendStack(app, `${stage}-OrderGoodsFrontendStack`, {
     stage,

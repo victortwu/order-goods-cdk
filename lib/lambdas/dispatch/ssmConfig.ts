@@ -48,3 +48,25 @@ export const getVendorEmail = async (
   const param = `/order-goods/${stage.toLowerCase()}/${vendorId}/recipient-email`;
   return getParam(param);
 };
+
+/**
+ * Reads the dispatch method for a vendor from SSM.
+ * Path: /order-goods/{stage}/{vendorId}/dispatch-method
+ * Returns: "ecs_bot" | "email" | "api"
+ */
+export const getDispatchMethod = async (
+  stage: string,
+  vendorId: string,
+): Promise<"ecs_bot" | "email" | "api"> => {
+  const param = `/order-goods/${stage.toLowerCase()}/${vendorId}/dispatch-method`;
+  return getParam(param) as Promise<"ecs_bot" | "email" | "api">;
+};
+
+/**
+ * Reads the orchestration state machine ARN from SSM.
+ * Path: /order-goods/{stage}/orchestration/state-machine-arn
+ */
+export const getStateMachineArn = async (stage: string): Promise<string> => {
+  const param = `/order-goods/${stage.toLowerCase()}/orchestration/state-machine-arn`;
+  return getParam(param);
+};
