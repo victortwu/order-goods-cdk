@@ -16,14 +16,11 @@ const headers = {
 
 export const getProducts = async (
   event: APIGatewayEvent,
-  ddbClient: DynamoDBClient
+  ddbClient: DynamoDBClient,
 ): Promise<APIGatewayProxyResult> => {
   console.log("api gateway event: ", event);
   if (event.queryStringParameters) {
-    if (
-      "id" in event.queryStringParameters ||
-      "name" in event.queryStringParameters
-    ) {
+    if ("id" in event.queryStringParameters || "name" in event.queryStringParameters) {
       const queryKey = "id" in event.queryStringParameters ? "id" : "name";
 
       const value = event.queryStringParameters[queryKey];
@@ -41,11 +38,11 @@ export const getProducts = async (
               ExpressionAttributeValues: {
                 ":nameValue": { S: value as string },
               },
-            })
+            }),
           );
           if (getProductResponseByName.Items) {
-            const unmarshalledItems = getProductResponseByName.Items.map(
-              (item) => unmarshall(item)
+            const unmarshalledItems = getProductResponseByName.Items.map((item) =>
+              unmarshall(item),
             );
             return {
               statusCode: 200,
@@ -67,7 +64,7 @@ export const getProducts = async (
               Key: {
                 id: { S: value as string },
               },
-            })
+            }),
           );
           if (getProductResponseById.Item) {
             const unmarshalledItem = unmarshall(getProductResponseById.Item);
@@ -95,9 +92,7 @@ export const getProducts = async (
     }
   }
 
-  const result = await ddbClient.send(
-    new ScanCommand({ TableName: process.env.PRODUCTS_TABLE })
-  );
+  const result = await ddbClient.send(new ScanCommand({ TableName: process.env.PRODUCTS_TABLE }));
   const products = result.Items?.map((item) => unmarshall(item));
   console.log(products);
   return {

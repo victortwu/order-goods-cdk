@@ -118,7 +118,13 @@ describe("dispatchHandler", () => {
   test("INSERT event with ecs_bot vendor starts execution with ecsConfig", async () => {
     // arrange
     const orderData = makeOrderData("order-123", [
-      { id: "1", productName: "Flour", qty: 5, unitType: "case", vendorID: VendorID.RESTAURANT_DEPOT },
+      {
+        id: "1",
+        productName: "Flour",
+        qty: 5,
+        unitType: "case",
+        vendorID: VendorID.RESTAURANT_DEPOT,
+      },
     ]);
     mockUnmarshall.mockReturnValue(orderData);
     mockGetDispatchMethod.mockResolvedValue("ecs_bot");
@@ -147,7 +153,13 @@ describe("dispatchHandler", () => {
   test("INSERT event with email vendor starts execution with emailConfig", async () => {
     // arrange
     const orderData = makeOrderData("order-456", [
-      { id: "1", productName: "Pita", qty: 10, unitType: "unit", vendorID: VendorID.WESTCOAST_PITA },
+      {
+        id: "1",
+        productName: "Pita",
+        qty: 10,
+        unitType: "unit",
+        vendorID: VendorID.WESTCOAST_PITA,
+      },
     ]);
     mockUnmarshall.mockReturnValue(orderData);
     mockGetDispatchMethod.mockResolvedValue("email");
@@ -173,13 +185,23 @@ describe("dispatchHandler", () => {
   test("multi-vendor order starts one execution per vendor group", async () => {
     // arrange
     const orderData = makeOrderData("order-789", [
-      { id: "1", productName: "Flour", qty: 5, unitType: "case", vendorID: VendorID.RESTAURANT_DEPOT },
-      { id: "2", productName: "Pita", qty: 10, unitType: "unit", vendorID: VendorID.WESTCOAST_PITA },
+      {
+        id: "1",
+        productName: "Flour",
+        qty: 5,
+        unitType: "case",
+        vendorID: VendorID.RESTAURANT_DEPOT,
+      },
+      {
+        id: "2",
+        productName: "Pita",
+        qty: 10,
+        unitType: "unit",
+        vendorID: VendorID.WESTCOAST_PITA,
+      },
     ]);
     mockUnmarshall.mockReturnValue(orderData);
-    mockGetDispatchMethod
-      .mockResolvedValueOnce("ecs_bot")
-      .mockResolvedValueOnce("email");
+    mockGetDispatchMethod.mockResolvedValueOnce("ecs_bot").mockResolvedValueOnce("email");
     mockGetSharedConfig.mockResolvedValue(MOCK_SHARED_CONFIG);
     mockGetVendorConfig.mockResolvedValue(MOCK_VENDOR_CONFIG);
     mockGetVendorEmail.mockResolvedValue("vendor@westcoastpita.com");
@@ -222,19 +244,27 @@ describe("dispatchHandler", () => {
   test("startExecution failure for one vendor does not block others", async () => {
     // arrange
     const orderData = makeOrderData("order-err", [
-      { id: "1", productName: "Flour", qty: 5, unitType: "case", vendorID: VendorID.RESTAURANT_DEPOT },
-      { id: "2", productName: "Pita", qty: 10, unitType: "unit", vendorID: VendorID.WESTCOAST_PITA },
+      {
+        id: "1",
+        productName: "Flour",
+        qty: 5,
+        unitType: "case",
+        vendorID: VendorID.RESTAURANT_DEPOT,
+      },
+      {
+        id: "2",
+        productName: "Pita",
+        qty: 10,
+        unitType: "unit",
+        vendorID: VendorID.WESTCOAST_PITA,
+      },
     ]);
     mockUnmarshall.mockReturnValue(orderData);
-    mockGetDispatchMethod
-      .mockResolvedValueOnce("ecs_bot")
-      .mockResolvedValueOnce("email");
+    mockGetDispatchMethod.mockResolvedValueOnce("ecs_bot").mockResolvedValueOnce("email");
     mockGetSharedConfig.mockResolvedValue(MOCK_SHARED_CONFIG);
     mockGetVendorConfig.mockResolvedValue(MOCK_VENDOR_CONFIG);
     mockGetVendorEmail.mockResolvedValue("vendor@westcoastpita.com");
-    mockSfnSend
-      .mockRejectedValueOnce(new Error("Throttled"))
-      .mockResolvedValueOnce({});
+    mockSfnSend.mockRejectedValueOnce(new Error("Throttled")).mockResolvedValueOnce({});
 
     const event = buildStreamEvent([
       { eventName: "INSERT", newImage: { placeholder: "marshalled" } },

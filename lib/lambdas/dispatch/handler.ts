@@ -3,11 +3,7 @@ import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { OrderItemRecord, VendorID } from "./constants/types";
-import {
-  groupItemsByVendor,
-  buildVendorGroup,
-  normalizeVendorId,
-} from "./vendorRouter";
+import { groupItemsByVendor, buildVendorGroup, normalizeVendorId } from "./vendorRouter";
 import {
   getSharedConfig,
   getVendorConfig,
@@ -18,9 +14,7 @@ import {
 
 const sfnClient = new SFNClient({});
 
-export const dispatchHandler = async (
-  event: DynamoDBStreamEvent,
-): Promise<void> => {
+export const dispatchHandler = async (event: DynamoDBStreamEvent): Promise<void> => {
   const recipientEmail = process.env.RECIPIENT_EMAIL!;
   const stage = process.env.STAGE!;
 
@@ -36,9 +30,7 @@ export const dispatchHandler = async (
       continue;
     }
 
-    const newImage = unmarshall(
-      record.dynamodb.NewImage as Record<string, AttributeValue>,
-    );
+    const newImage = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
     const orderId = newImage.id as string;
     const list = (newImage.list ?? []) as OrderItemRecord[];
 
@@ -110,10 +102,7 @@ export const dispatchHandler = async (
           `Started execution for order ${orderId}, vendor ${vendorId} (${dispatchMethod})`,
         );
       } catch (error) {
-        console.error(
-          `Failed to start execution for order ${orderId}, vendor ${vendorId}:`,
-          error,
-        );
+        console.error(`Failed to start execution for order ${orderId}, vendor ${vendorId}:`, error);
       }
     }
   }

@@ -5,7 +5,7 @@ import { v4 } from "uuid";
 
 export const postList = async (
   event: APIGatewayEvent,
-  ddbClient: DynamoDBClient
+  ddbClient: DynamoDBClient,
 ): Promise<APIGatewayProxyResult> => {
   const randomId = v4();
   const item = JSON.parse(event.body as string);
@@ -27,7 +27,7 @@ export const postList = async (
         },
         list: { L: marshalledList as any },
       },
-    })
+    }),
   );
   console.log(result);
   return {

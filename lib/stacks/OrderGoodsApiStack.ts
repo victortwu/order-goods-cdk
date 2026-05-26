@@ -20,14 +20,10 @@ export class OrderGoodsApiStack extends Stack {
   constructor(scope: Construct, id: string, props: OrderGoodsApiStackProps) {
     super(scope, id, props);
 
-    const authorizer = new CognitoUserPoolsAuthorizer(
-      this,
-      "OrderGoodsAuthorizer",
-      {
-        cognitoUserPools: [props.userPool],
-        authorizerName: `OrderGoods-${props.stage}-Authorizer`,
-      },
-    );
+    const authorizer = new CognitoUserPoolsAuthorizer(this, "OrderGoodsAuthorizer", {
+      cognitoUserPools: [props.userPool],
+      authorizerName: `OrderGoods-${props.stage}-Authorizer`,
+    });
 
     const api = new RestApi(this, "OrderGoodsApi", {
       restApiName: `OrderGoods-${props.stage}-Api`,

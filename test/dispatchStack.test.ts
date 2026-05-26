@@ -11,14 +11,10 @@ describe("OrderGoodsDispatchStack", () => {
     const dataStack = new OrderGoodsDataStack(app, "TestDataStack", {
       stage: "Test",
     });
-    const dispatchStack = new OrderGoodsDispatchStack(
-      app,
-      "TestDispatchStack",
-      {
-        stage: "Test",
-        orderedListTable: dataStack.orderedListTable,
-      },
-    );
+    const dispatchStack = new OrderGoodsDispatchStack(app, "TestDispatchStack", {
+      stage: "Test",
+      orderedListTable: dataStack.orderedListTable,
+    });
     template = Template.fromStack(dispatchStack);
   });
 

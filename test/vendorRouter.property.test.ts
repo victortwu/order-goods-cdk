@@ -4,10 +4,7 @@ import {
   VendorGroup,
   VendorGroupItem,
 } from "../lib/lambdas/dispatch/constants/types";
-import {
-  groupItemsByVendor,
-  buildVendorGroup,
-} from "../lib/lambdas/dispatch/vendorRouter";
+import { groupItemsByVendor, buildVendorGroup } from "../lib/lambdas/dispatch/vendorRouter";
 
 // --- Arbitraries ---
 
@@ -37,12 +34,9 @@ const productDataArb = fc.record({
   description: fc.option(fc.string({ minLength: 0, maxLength: 100 }), {
     nil: undefined,
   }),
-  tags: fc.option(
-    fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 5 }),
-    {
-      nil: undefined,
-    },
-  ),
+  tags: fc.option(fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 5 }), {
+    nil: undefined,
+  }),
   hide: fc.option(fc.boolean(), { nil: undefined }),
 });
 
@@ -79,33 +73,30 @@ const vendorGroupArb: fc.Arbitrary<VendorGroup> = fc.record({
 describe("Property 1: Vendor grouping correctness", () => {
   it("group count equals distinct vendorIDs, items share group key, total items preserved", () => {
     fc.assert(
-      fc.property(
-        fc.array(orderItemRecordArb, { minLength: 0, maxLength: 30 }),
-        (items) => {
-          const result = groupItemsByVendor(items);
+      fc.property(fc.array(orderItemRecordArb, { minLength: 0, maxLength: 30 }), (items) => {
+        const result = groupItemsByVendor(items);
 
-          // Number of keys = number of distinct vendorID values in input
-          const distinctVendors = new Set(
-            items.map((item) => item.productData?.vendorID || "UNKNOWN"),
-          );
-          expect(result.size).toBe(distinctVendors.size);
+        // Number of keys = number of distinct vendorID values in input
+        const distinctVendors = new Set(
+          items.map((item) => item.productData?.vendorID || "UNKNOWN"),
+        );
+        expect(result.size).toBe(distinctVendors.size);
 
-          // Every item in a given group shares the same vendorID as the group key
-          for (const [vendorId, groupItems] of result.entries()) {
-            for (const item of groupItems) {
-              const itemVendor = item.productData?.vendorID || "UNKNOWN";
-              expect(itemVendor).toBe(vendorId);
-            }
+        // Every item in a given group shares the same vendorID as the group key
+        for (const [vendorId, groupItems] of result.entries()) {
+          for (const item of groupItems) {
+            const itemVendor = item.productData?.vendorID || "UNKNOWN";
+            expect(itemVendor).toBe(vendorId);
           }
+        }
 
-          // Sum of items across all groups = length of input array
-          let totalItems = 0;
-          for (const groupItems of result.values()) {
-            totalItems += groupItems.length;
-          }
-          expect(totalItems).toBe(items.length);
-        },
-      ),
+        // Sum of items across all groups = length of input array
+        let totalItems = 0;
+        for (const groupItems of result.values()) {
+          totalItems += groupItems.length;
+        }
+        expect(totalItems).toBe(items.length);
+      }),
       { numRuns: 100 },
     );
   });
@@ -141,12 +132,8 @@ describe("Property 2: Field preservation through vendor group construction", () 
             // productData should contain all fields from the original
             expect(output.productData.id).toBe(input.productData.id);
             expect(output.productData.name).toBe(input.productData.name);
-            expect(output.productData.category).toBe(
-              input.productData.category,
-            );
-            expect(output.productData.vendorID).toBe(
-              input.productData.vendorID,
-            );
+            expect(output.productData.category).toBe(input.productData.category);
+            expect(output.productData.vendorID).toBe(input.productData.vendorID);
 
             // Optional fields preserved when present
             if (input.productData.upc !== undefined) {

@@ -1,14 +1,10 @@
-import {
-  AttributeValue,
-  DynamoDBClient,
-  GetItemCommand,
-} from "@aws-sdk/client-dynamodb";
+import { AttributeValue, DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { APIGatewayEvent, APIGatewayProxyResult } from "aws-lambda";
 import { unmarshall, marshall } from "@aws-sdk/util-dynamodb";
 
 export const getList = async (
   event: APIGatewayEvent,
-  ddbClient: DynamoDBClient
+  ddbClient: DynamoDBClient,
 ): Promise<APIGatewayProxyResult> => {
   if (event.queryStringParameters && "id" in event.queryStringParameters) {
     const listId = event.queryStringParameters["id"];
@@ -21,7 +17,7 @@ export const getList = async (
         Key: {
           id: marshalledListId as unknown as AttributeValue,
         },
-      })
+      }),
     );
 
     if (getListResponse.Item) {

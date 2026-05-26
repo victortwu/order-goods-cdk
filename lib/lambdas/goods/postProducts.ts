@@ -5,7 +5,7 @@ import { v4 } from "uuid";
 
 export const postProduct = async (
   event: APIGatewayEvent,
-  ddbClient: DynamoDBClient
+  ddbClient: DynamoDBClient,
 ): Promise<APIGatewayProxyResult> => {
   const randomId = v4();
   const product = JSON.parse(event.body as string);
@@ -16,7 +16,7 @@ export const postProduct = async (
     new PutItemCommand({
       TableName: process.env.PRODUCTS_TABLE,
       Item: marshalledProduct,
-    })
+    }),
   );
   console.log(result);
   return {

@@ -11,25 +11,13 @@ import { OrderGoodsApiStack } from "../lib/stacks/OrderGoodsApiStack";
  */
 function synthesizeApiStack(stage: string) {
   const app = new cdk.App();
-  const authStack = new OrderGoodsAuthStack(
-    app,
-    `${stage}-OrderGoodsAuthStack`,
-    { stage },
-  );
-  const dataStack = new OrderGoodsDataStack(
-    app,
-    `${stage}-OrderGoodsDataStack`,
-    { stage },
-  );
-  const lambdaStack = new OrderGoodsLambdaStack(
-    app,
-    `${stage}-OrderGoodsLambdaStack`,
-    {
-      stage,
-      orderedListTable: dataStack.orderedListTable,
-      productsTable: dataStack.productsTable,
-    },
-  );
+  const authStack = new OrderGoodsAuthStack(app, `${stage}-OrderGoodsAuthStack`, { stage });
+  const dataStack = new OrderGoodsDataStack(app, `${stage}-OrderGoodsDataStack`, { stage });
+  const lambdaStack = new OrderGoodsLambdaStack(app, `${stage}-OrderGoodsLambdaStack`, {
+    stage,
+    orderedListTable: dataStack.orderedListTable,
+    productsTable: dataStack.productsTable,
+  });
   const apiStack = new OrderGoodsApiStack(app, `${stage}-OrderGoodsApiStack`, {
     stage,
     goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
@@ -71,17 +59,13 @@ describe("API Auth Hardening", () => {
       });
 
       const protectedMethods = Object.values(methods).filter(
-        (m: any) =>
-          m.Properties.HttpMethod === "GET" ||
-          m.Properties.HttpMethod === "POST",
+        (m: any) => m.Properties.HttpMethod === "GET" || m.Properties.HttpMethod === "POST",
       );
 
       expect(protectedMethods.length).toBeGreaterThanOrEqual(3); // GET /goods, GET /lists, POST /lists
 
       for (const method of protectedMethods) {
-        expect((method as any).Properties.AuthorizationType).toBe(
-          "COGNITO_USER_POOLS",
-        );
+        expect((method as any).Properties.AuthorizationType).toBe("COGNITO_USER_POOLS");
         // The AuthorizerId should reference the authorizer resource
         expect((method as any).Properties.AuthorizerId).toBeDefined();
       }
@@ -124,11 +108,7 @@ describe("API Auth Hardening", () => {
   describe("Beta self-sign-up enabled", () => {
     test("Beta User Pool does not have AllowAdminCreateUserOnly set to true", () => {
       const app = new cdk.App();
-      const authStack = new OrderGoodsAuthStack(
-        app,
-        "Beta-OrderGoodsAuthStack",
-        { stage: "Beta" },
-      );
+      const authStack = new OrderGoodsAuthStack(app, "Beta-OrderGoodsAuthStack", { stage: "Beta" });
       const template = Template.fromStack(authStack);
 
       // When selfSignUpEnabled is true, CDK either omits AdminCreateUserConfig
@@ -154,11 +134,7 @@ describe("API Auth Hardening", () => {
   describe("Prod self-sign-up disabled", () => {
     test("Prod User Pool has AllowAdminCreateUserOnly set to true", () => {
       const app = new cdk.App();
-      const authStack = new OrderGoodsAuthStack(
-        app,
-        "Prod-OrderGoodsAuthStack",
-        { stage: "Prod" },
-      );
+      const authStack = new OrderGoodsAuthStack(app, "Prod-OrderGoodsAuthStack", { stage: "Prod" });
       const template = Template.fromStack(authStack);
 
       template.hasResourceProperties("AWS::Cognito::UserPool", {
@@ -181,36 +157,20 @@ describe("API Auth Hardening", () => {
       const authStacks: Record<string, OrderGoodsAuthStack> = {};
 
       for (const stage of stages) {
-        const authStack = new OrderGoodsAuthStack(
-          app,
-          `${stage}-OrderGoodsAuthStack`,
-          { stage },
-        );
+        const authStack = new OrderGoodsAuthStack(app, `${stage}-OrderGoodsAuthStack`, { stage });
         authStacks[stage] = authStack;
-        const dataStack = new OrderGoodsDataStack(
-          app,
-          `${stage}-OrderGoodsDataStack`,
-          { stage },
-        );
-        const lambdaStack = new OrderGoodsLambdaStack(
-          app,
-          `${stage}-OrderGoodsLambdaStack`,
-          {
-            stage,
-            orderedListTable: dataStack.orderedListTable,
-            productsTable: dataStack.productsTable,
-          },
-        );
-        const apiStack = new OrderGoodsApiStack(
-          app,
-          `${stage}-OrderGoodsApiStack`,
-          {
-            stage,
-            goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
-            listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
-            userPool: authStack.userPool,
-          },
-        );
+        const dataStack = new OrderGoodsDataStack(app, `${stage}-OrderGoodsDataStack`, { stage });
+        const lambdaStack = new OrderGoodsLambdaStack(app, `${stage}-OrderGoodsLambdaStack`, {
+          stage,
+          orderedListTable: dataStack.orderedListTable,
+          productsTable: dataStack.productsTable,
+        });
+        const apiStack = new OrderGoodsApiStack(app, `${stage}-OrderGoodsApiStack`, {
+          stage,
+          goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
+          listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
+          userPool: authStack.userPool,
+        });
         apiStacks[stage] = apiStack;
       }
 
@@ -218,9 +178,7 @@ describe("API Auth Hardening", () => {
       const betaAuthTemplate = Template.fromStack(authStacks["Beta"]);
 
       // Find the authorizer in Beta ApiStack
-      const authorizers = betaApiTemplate.findResources(
-        "AWS::ApiGateway::Authorizer",
-      );
+      const authorizers = betaApiTemplate.findResources("AWS::ApiGateway::Authorizer");
       const authorizerValues = Object.values(authorizers);
       expect(authorizerValues).toHaveLength(1);
 
@@ -247,9 +205,7 @@ describe("API Auth Hardening", () => {
         expect(providerArn["Fn::GetAtt"]).toBeDefined();
       } else {
         // It should be some form of cross-stack reference
-        fail(
-          "Expected ProviderARN to be a cross-stack reference (Fn::ImportValue or Fn::GetAtt)",
-        );
+        fail("Expected ProviderARN to be a cross-stack reference (Fn::ImportValue or Fn::GetAtt)");
       }
     });
   });
@@ -266,36 +222,20 @@ describe("API Auth Hardening", () => {
       const authStacks: Record<string, OrderGoodsAuthStack> = {};
 
       for (const stage of stages) {
-        const authStack = new OrderGoodsAuthStack(
-          app,
-          `${stage}-OrderGoodsAuthStack`,
-          { stage },
-        );
+        const authStack = new OrderGoodsAuthStack(app, `${stage}-OrderGoodsAuthStack`, { stage });
         authStacks[stage] = authStack;
-        const dataStack = new OrderGoodsDataStack(
-          app,
-          `${stage}-OrderGoodsDataStack`,
-          { stage },
-        );
-        const lambdaStack = new OrderGoodsLambdaStack(
-          app,
-          `${stage}-OrderGoodsLambdaStack`,
-          {
-            stage,
-            orderedListTable: dataStack.orderedListTable,
-            productsTable: dataStack.productsTable,
-          },
-        );
-        const apiStack = new OrderGoodsApiStack(
-          app,
-          `${stage}-OrderGoodsApiStack`,
-          {
-            stage,
-            goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
-            listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
-            userPool: authStack.userPool,
-          },
-        );
+        const dataStack = new OrderGoodsDataStack(app, `${stage}-OrderGoodsDataStack`, { stage });
+        const lambdaStack = new OrderGoodsLambdaStack(app, `${stage}-OrderGoodsLambdaStack`, {
+          stage,
+          orderedListTable: dataStack.orderedListTable,
+          productsTable: dataStack.productsTable,
+        });
+        const apiStack = new OrderGoodsApiStack(app, `${stage}-OrderGoodsApiStack`, {
+          stage,
+          goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
+          listsLambdaIntegration: lambdaStack.listsLambdaIntegration,
+          userPool: authStack.userPool,
+        });
         apiStacks[stage] = apiStack;
       }
 
@@ -303,9 +243,7 @@ describe("API Auth Hardening", () => {
       const prodAuthTemplate = Template.fromStack(authStacks["Prod"]);
 
       // Find the authorizer in Prod ApiStack
-      const authorizers = prodApiTemplate.findResources(
-        "AWS::ApiGateway::Authorizer",
-      );
+      const authorizers = prodApiTemplate.findResources("AWS::ApiGateway::Authorizer");
       const authorizerValues = Object.values(authorizers);
       expect(authorizerValues).toHaveLength(1);
 
@@ -327,9 +265,7 @@ describe("API Auth Hardening", () => {
       } else if (providerArn["Fn::GetAtt"]) {
         expect(providerArn["Fn::GetAtt"]).toBeDefined();
       } else {
-        fail(
-          "Expected ProviderARN to be a cross-stack reference (Fn::ImportValue or Fn::GetAtt)",
-        );
+        fail("Expected ProviderARN to be a cross-stack reference (Fn::ImportValue or Fn::GetAtt)");
       }
 
       // Additionally verify that Prod authorizer does NOT reference Beta exports

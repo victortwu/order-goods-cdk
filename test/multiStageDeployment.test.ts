@@ -13,25 +13,13 @@ describe("Multi-Stage Deployment", () => {
       const stages = ["Beta", "Prod"];
 
       for (const stage of stages) {
-        const authStack = new OrderGoodsAuthStack(
-          app,
-          `${stage}-OrderGoodsAuthStack`,
-          { stage },
-        );
-        const dataStack = new OrderGoodsDataStack(
-          app,
-          `${stage}-OrderGoodsDataStack`,
-          { stage },
-        );
-        const lambdaStack = new OrderGoodsLambdaStack(
-          app,
-          `${stage}-OrderGoodsLambdaStack`,
-          {
-            stage,
-            orderedListTable: dataStack.orderedListTable,
-            productsTable: dataStack.productsTable,
-          },
-        );
+        const authStack = new OrderGoodsAuthStack(app, `${stage}-OrderGoodsAuthStack`, { stage });
+        const dataStack = new OrderGoodsDataStack(app, `${stage}-OrderGoodsDataStack`, { stage });
+        const lambdaStack = new OrderGoodsLambdaStack(app, `${stage}-OrderGoodsLambdaStack`, {
+          stage,
+          orderedListTable: dataStack.orderedListTable,
+          productsTable: dataStack.productsTable,
+        });
         new OrderGoodsApiStack(app, `${stage}-OrderGoodsApiStack`, {
           stage,
           goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
@@ -76,27 +64,19 @@ describe("Multi-Stage Deployment", () => {
   describe("Beta-OrderGoodsDataStack DynamoDB table names contain Beta", () => {
     test("DynamoDB table names contain Beta in the Fn::Join expression", () => {
       const app = new cdk.App();
-      const dataStack = new OrderGoodsDataStack(
-        app,
-        "Beta-OrderGoodsDataStack",
-        { stage: "Beta" },
-      );
+      const dataStack = new OrderGoodsDataStack(app, "Beta-OrderGoodsDataStack", { stage: "Beta" });
       const template = Template.fromStack(dataStack);
 
       // Both DynamoDB tables should have TableName using Fn::Join containing "Beta"
       template.hasResourceProperties("AWS::DynamoDB::Table", {
         TableName: Match.objectLike({
-          "Fn::Join": Match.arrayWith([
-            Match.arrayWith(["OrderedListTable-Beta-"]),
-          ]),
+          "Fn::Join": Match.arrayWith([Match.arrayWith(["OrderedListTable-Beta-"])]),
         }),
       });
 
       template.hasResourceProperties("AWS::DynamoDB::Table", {
         TableName: Match.objectLike({
-          "Fn::Join": Match.arrayWith([
-            Match.arrayWith(["ProductsTable-Beta-"]),
-          ]),
+          "Fn::Join": Match.arrayWith([Match.arrayWith(["ProductsTable-Beta-"])]),
         }),
       });
     });
@@ -105,26 +85,18 @@ describe("Multi-Stage Deployment", () => {
   describe("Prod-OrderGoodsDataStack DynamoDB table names contain Prod", () => {
     test("DynamoDB table names contain Prod in the Fn::Join expression", () => {
       const app = new cdk.App();
-      const dataStack = new OrderGoodsDataStack(
-        app,
-        "Prod-OrderGoodsDataStack",
-        { stage: "Prod" },
-      );
+      const dataStack = new OrderGoodsDataStack(app, "Prod-OrderGoodsDataStack", { stage: "Prod" });
       const template = Template.fromStack(dataStack);
 
       template.hasResourceProperties("AWS::DynamoDB::Table", {
         TableName: Match.objectLike({
-          "Fn::Join": Match.arrayWith([
-            Match.arrayWith(["OrderedListTable-Prod-"]),
-          ]),
+          "Fn::Join": Match.arrayWith([Match.arrayWith(["OrderedListTable-Prod-"])]),
         }),
       });
 
       template.hasResourceProperties("AWS::DynamoDB::Table", {
         TableName: Match.objectLike({
-          "Fn::Join": Match.arrayWith([
-            Match.arrayWith(["ProductsTable-Prod-"]),
-          ]),
+          "Fn::Join": Match.arrayWith([Match.arrayWith(["ProductsTable-Prod-"])]),
         }),
       });
     });
@@ -133,20 +105,12 @@ describe("Multi-Stage Deployment", () => {
   describe("Beta LambdaStack Lambda function names contain Beta", () => {
     test("Lambda functions have functionName containing Beta", () => {
       const app = new cdk.App();
-      const dataStack = new OrderGoodsDataStack(
-        app,
-        "Beta-OrderGoodsDataStack",
-        { stage: "Beta" },
-      );
-      const lambdaStack = new OrderGoodsLambdaStack(
-        app,
-        "Beta-OrderGoodsLambdaStack",
-        {
-          stage: "Beta",
-          orderedListTable: dataStack.orderedListTable,
-          productsTable: dataStack.productsTable,
-        },
-      );
+      const dataStack = new OrderGoodsDataStack(app, "Beta-OrderGoodsDataStack", { stage: "Beta" });
+      const lambdaStack = new OrderGoodsLambdaStack(app, "Beta-OrderGoodsLambdaStack", {
+        stage: "Beta",
+        orderedListTable: dataStack.orderedListTable,
+        productsTable: dataStack.productsTable,
+      });
       const template = Template.fromStack(lambdaStack);
 
       template.hasResourceProperties("AWS::Lambda::Function", {
@@ -162,11 +126,7 @@ describe("Multi-Stage Deployment", () => {
   describe("AuthStack creates User Pool and Identity Pool with stage name", () => {
     test("User Pool name and Identity Pool name contain the stage", () => {
       const app = new cdk.App();
-      const authStack = new OrderGoodsAuthStack(
-        app,
-        "Beta-OrderGoodsAuthStack",
-        { stage: "Beta" },
-      );
+      const authStack = new OrderGoodsAuthStack(app, "Beta-OrderGoodsAuthStack", { stage: "Beta" });
       const template = Template.fromStack(authStack);
 
       template.hasResourceProperties("AWS::Cognito::UserPool", {
@@ -182,25 +142,13 @@ describe("Multi-Stage Deployment", () => {
   describe("ApiStack creates REST API with stage name", () => {
     test("REST API name contains the stage", () => {
       const app = new cdk.App();
-      const dataStack = new OrderGoodsDataStack(
-        app,
-        "Beta-OrderGoodsDataStack",
-        { stage: "Beta" },
-      );
-      const lambdaStack = new OrderGoodsLambdaStack(
-        app,
-        "Beta-OrderGoodsLambdaStack",
-        {
-          stage: "Beta",
-          orderedListTable: dataStack.orderedListTable,
-          productsTable: dataStack.productsTable,
-        },
-      );
-      const authStack = new OrderGoodsAuthStack(
-        app,
-        "Beta-OrderGoodsAuthStack",
-        { stage: "Beta" },
-      );
+      const dataStack = new OrderGoodsDataStack(app, "Beta-OrderGoodsDataStack", { stage: "Beta" });
+      const lambdaStack = new OrderGoodsLambdaStack(app, "Beta-OrderGoodsLambdaStack", {
+        stage: "Beta",
+        orderedListTable: dataStack.orderedListTable,
+        productsTable: dataStack.productsTable,
+      });
+      const authStack = new OrderGoodsAuthStack(app, "Beta-OrderGoodsAuthStack", { stage: "Beta" });
       const apiStack = new OrderGoodsApiStack(app, "Beta-OrderGoodsApiStack", {
         stage: "Beta",
         goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
@@ -218,19 +166,11 @@ describe("Multi-Stage Deployment", () => {
   describe("DispatchStack creates Lambda with stage name", () => {
     test("Dispatch Lambda functionName contains the stage", () => {
       const app = new cdk.App();
-      const dataStack = new OrderGoodsDataStack(
-        app,
-        "Beta-OrderGoodsDataStack",
-        { stage: "Beta" },
-      );
-      const dispatchStack = new OrderGoodsDispatchStack(
-        app,
-        "Beta-OrderGoodsDispatchStack",
-        {
-          stage: "Beta",
-          orderedListTable: dataStack.orderedListTable,
-        },
-      );
+      const dataStack = new OrderGoodsDataStack(app, "Beta-OrderGoodsDataStack", { stage: "Beta" });
+      const dispatchStack = new OrderGoodsDispatchStack(app, "Beta-OrderGoodsDispatchStack", {
+        stage: "Beta",
+        orderedListTable: dataStack.orderedListTable,
+      });
       const template = Template.fromStack(dispatchStack);
 
       template.hasResourceProperties("AWS::Lambda::Function", {

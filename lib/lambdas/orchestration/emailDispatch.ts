@@ -10,9 +10,7 @@ const RESTAURANT_INFO = {
 } as const;
 
 const formatEmailBody = (vendorGroup: VendorGroup): string => {
-  const itemLines = vendorGroup.items
-    .map((item) => `${item.qty} ${item.productName}`)
-    .join("\n");
+  const itemLines = vendorGroup.items.map((item) => `${item.qty} ${item.productName}`).join("\n");
 
   return `Hello, we would like to order:\n\n${itemLines}\n\nThank you,\n${RESTAURANT_INFO.contactName}\n\n${RESTAURANT_INFO.name}\n${RESTAURANT_INFO.address}`;
 };

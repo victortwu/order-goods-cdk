@@ -18,11 +18,9 @@ describe("OrderGoodsFrontendStack", () => {
     }
 
     const app = new cdk.App();
-    const stack = new OrderGoodsFrontendStack(
-      app,
-      "Beta-OrderGoodsFrontendStack",
-      { stage: "Beta" },
-    );
+    const stack = new OrderGoodsFrontendStack(app, "Beta-OrderGoodsFrontendStack", {
+      stage: "Beta",
+    });
     template = Template.fromStack(stack);
   });
 

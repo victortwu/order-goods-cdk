@@ -7,9 +7,7 @@ import { OrderItemRecord, VendorGroup, VendorID } from "./constants/types";
  * If vendorID is missing or undefined, defaults to "UNKNOWN".
  * Empty groups are never produced.
  */
-export const groupItemsByVendor = (
-  items: OrderItemRecord[],
-): Map<string, OrderItemRecord[]> => {
+export const groupItemsByVendor = (items: OrderItemRecord[]): Map<string, OrderItemRecord[]> => {
   const groups = new Map<string, OrderItemRecord[]>();
 
   for (const item of items) {

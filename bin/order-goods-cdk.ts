@@ -17,25 +17,13 @@ const stages = ["Beta", "Prod"];
 for (const stage of stages) {
   const stageLower = stage.toLowerCase();
 
-  const authStack = new OrderGoodsAuthStack(
-    app,
-    `${stage}-OrderGoodsAuthStack`,
-    { stage },
-  );
-  const dataStack = new OrderGoodsDataStack(
-    app,
-    `${stage}-OrderGoodsDataStack`,
-    { stage },
-  );
-  const lambdaStack = new OrderGoodsLambdaStack(
-    app,
-    `${stage}-OrderGoodsLambdaStack`,
-    {
-      stage,
-      orderedListTable: dataStack.orderedListTable,
-      productsTable: dataStack.productsTable,
-    },
-  );
+  const authStack = new OrderGoodsAuthStack(app, `${stage}-OrderGoodsAuthStack`, { stage });
+  const dataStack = new OrderGoodsDataStack(app, `${stage}-OrderGoodsDataStack`, { stage });
+  const lambdaStack = new OrderGoodsLambdaStack(app, `${stage}-OrderGoodsLambdaStack`, {
+    stage,
+    orderedListTable: dataStack.orderedListTable,
+    productsTable: dataStack.productsTable,
+  });
   new OrderGoodsApiStack(app, `${stage}-OrderGoodsApiStack`, {
     stage,
     goodsLambdaIntegration: lambdaStack.goodsLambdaIntegration,
@@ -44,24 +32,16 @@ for (const stage of stages) {
   });
 
   // Shared bot infrastructure
-  const botClusterStack = new BotClusterStack(
-    app,
-    `${stage}-BotClusterStack`,
-    { stage },
-  );
+  const botClusterStack = new BotClusterStack(app, `${stage}-BotClusterStack`, { stage });
 
   // Per-vendor bot stacks
-  const rdBotStack = new PlaywrightBotStack(
-    app,
-    `${stage}-PlaywrightBotStack-restaurant-depot`,
-    {
-      stage,
-      vendorId: "restaurant-depot",
-      botName: "RD Order Bot",
-      credentialSecretPath: `order-goods/${stageLower}/restaurant-depot-creds`,
-      environmentVars: { DELIVERY_ZIP_CODE: "" },
-    },
-  );
+  const rdBotStack = new PlaywrightBotStack(app, `${stage}-PlaywrightBotStack-restaurant-depot`, {
+    stage,
+    vendorId: "restaurant-depot",
+    botName: "RD Order Bot",
+    credentialSecretPath: `order-goods/${stageLower}/restaurant-depot-creds`,
+    environmentVars: { DELIVERY_ZIP_CODE: "" },
+  });
   rdBotStack.addDependency(botClusterStack);
 
   // Orchestration stack — Step Functions state machine + supporting Lambdas
@@ -72,14 +52,10 @@ for (const stage of stages) {
   );
 
   // Dispatch stack — fully decoupled, reads SSM at runtime
-  const dispatchStack = new OrderGoodsDispatchStack(
-    app,
-    `${stage}-OrderGoodsDispatchStack`,
-    {
-      stage,
-      orderedListTable: dataStack.orderedListTable,
-    },
-  );
+  const dispatchStack = new OrderGoodsDispatchStack(app, `${stage}-OrderGoodsDispatchStack`, {
+    stage,
+    orderedListTable: dataStack.orderedListTable,
+  });
   dispatchStack.addDependency(rdBotStack);
   dispatchStack.addDependency(orchestrationStack);
 

@@ -5,12 +5,7 @@
 // https://stackoverflow.com/questions/51600780/dynamodb-triggering-a-lambda-function-in-another-account
 
 import { Stack, StackProps } from "aws-cdk-lib";
-import {
-  AttributeType,
-  ITable,
-  StreamViewType,
-  Table,
-} from "aws-cdk-lib/aws-dynamodb";
+import { AttributeType, ITable, StreamViewType, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
 import { getSuffixFromStack } from "../utils/getSuffixFromStack";
 
@@ -27,18 +22,14 @@ export class OrderGoodsDataStack extends Stack {
 
     const suffix = getSuffixFromStack(this);
 
-    const orderedListTable = (this.orderedListTable = new Table(
-      this,
-      "OrderedListTable",
-      {
-        partitionKey: {
-          name: "id",
-          type: AttributeType.STRING,
-        },
-        tableName: `OrderedListTable-${props.stage}-${suffix}`,
-        stream: StreamViewType.NEW_IMAGE,
+    const orderedListTable = (this.orderedListTable = new Table(this, "OrderedListTable", {
+      partitionKey: {
+        name: "id",
+        type: AttributeType.STRING,
       },
-    ));
+      tableName: `OrderedListTable-${props.stage}-${suffix}`,
+      stream: StreamViewType.NEW_IMAGE,
+    }));
 
     // TODO: there are currently no handlers for this index
     orderedListTable.addGlobalSecondaryIndex({
@@ -49,17 +40,13 @@ export class OrderGoodsDataStack extends Stack {
       indexName: "TimestampIndex",
     });
 
-    const productsTable = (this.productsTable = new Table(
-      this,
-      "ProductsTable",
-      {
-        partitionKey: {
-          name: "id",
-          type: AttributeType.STRING,
-        },
-        tableName: `ProductsTable-${props.stage}-${suffix}`,
+    const productsTable = (this.productsTable = new Table(this, "ProductsTable", {
+      partitionKey: {
+        name: "id",
+        type: AttributeType.STRING,
       },
-    ));
+      tableName: `ProductsTable-${props.stage}-${suffix}`,
+    }));
 
     productsTable.addGlobalSecondaryIndex({
       partitionKey: {

@@ -14,11 +14,7 @@ interface OrderGoodsDispatchStackProps extends StackProps {
 }
 
 export class OrderGoodsDispatchStack extends Stack {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: OrderGoodsDispatchStackProps,
-  ) {
+  constructor(scope: Construct, id: string, props: OrderGoodsDispatchStackProps) {
     super(scope, id, props);
 
     const stageLower = props.stage.toLowerCase();
@@ -49,9 +45,7 @@ export class OrderGoodsDispatchStack extends Stack {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ["states:StartExecution"],
-        resources: [
-          `arn:aws:states:*:*:stateMachine:OrderGoods-${props.stage}-OrderOrchestration`,
-        ],
+        resources: [`arn:aws:states:*:*:stateMachine:OrderGoods-${props.stage}-OrderOrchestration`],
       }),
     );
 
@@ -59,9 +53,7 @@ export class OrderGoodsDispatchStack extends Stack {
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ["ssm:GetParameter"],
-        resources: [
-          `arn:aws:ssm:*:*:parameter/order-goods/${stageLower}/*`,
-        ],
+        resources: [`arn:aws:ssm:*:*:parameter/order-goods/${stageLower}/*`],
       }),
     );
   }

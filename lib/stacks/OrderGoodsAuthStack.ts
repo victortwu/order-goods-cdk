@@ -62,9 +62,7 @@ export class OrderGoodsAuthStack extends Stack {
         },
         "sts:AssumeRoleWithWebIdentity",
       ),
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName("AmazonCognitoPowerUser"),
-      ],
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName("AmazonCognitoPowerUser")],
     });
 
     const adminRole = new Role(this, "OrderGoodsAdminRole", {
@@ -80,9 +78,7 @@ export class OrderGoodsAuthStack extends Stack {
         },
         "sts:AssumeRoleWithWebIdentity",
       ),
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"),
-      ],
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")],
     });
 
     new CfnUserPoolGroup(this, "OrderGoodsAdminsGroup", {
@@ -91,32 +87,28 @@ export class OrderGoodsAuthStack extends Stack {
       roleArn: adminRole.roleArn,
     });
 
-    new CfnIdentityPoolRoleAttachment(
-      this,
-      "OrderGoodsIdentityPoolRoleAttachment",
-      {
-        identityPoolId: this.identityPool.ref,
-        roles: {
-          authenticated: authenticatedRole.roleArn,
-        },
-        roleMappings: {
-          admins: {
-            type: "Token",
-            ambiguousRoleResolution: "AuthenticatedRole",
-            identityProvider: `cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}:${this.userPoolClient.userPoolClientId}`,
-            rulesConfiguration: {
-              rules: [
-                {
-                  claim: "cognito:groups",
-                  matchType: "Contains",
-                  value: "admins",
-                  roleArn: adminRole.roleArn,
-                },
-              ],
-            },
+    new CfnIdentityPoolRoleAttachment(this, "OrderGoodsIdentityPoolRoleAttachment", {
+      identityPoolId: this.identityPool.ref,
+      roles: {
+        authenticated: authenticatedRole.roleArn,
+      },
+      roleMappings: {
+        admins: {
+          type: "Token",
+          ambiguousRoleResolution: "AuthenticatedRole",
+          identityProvider: `cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}:${this.userPoolClient.userPoolClientId}`,
+          rulesConfiguration: {
+            rules: [
+              {
+                claim: "cognito:groups",
+                matchType: "Contains",
+                value: "admins",
+                roleArn: adminRole.roleArn,
+              },
+            ],
           },
         },
       },
-    );
+    });
   }
 }

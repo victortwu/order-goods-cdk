@@ -22,7 +22,9 @@ const formatSuccessBody = (result: OrderResult): string => {
   if (result.itemsNotAdded.length > 0) {
     lines.push(`Items Not Added (${result.itemsNotAdded.length}):`);
     for (const item of result.itemsNotAdded) {
-      lines.push(`  - ${item.productName}  qty: ${item.qty}  unit: ${item.unitType}  reason: ${item.reason}`);
+      lines.push(
+        `  - ${item.productName}  qty: ${item.qty}  unit: ${item.unitType}  reason: ${item.reason}`,
+      );
     }
     lines.push("");
   }
@@ -46,9 +48,7 @@ export const handler = async (event: NotificationInput): Promise<void> => {
       : `Order ${vendorGroup.orderId} — Automation Failed (Fallback)`;
 
   const body =
-    type === "success"
-      ? formatSuccessBody(orderResult!)
-      : formatFailureBody(vendorGroup, error);
+    type === "success" ? formatSuccessBody(orderResult!) : formatFailureBody(vendorGroup, error);
 
   await sesClient.send(
     new SendEmailCommand({

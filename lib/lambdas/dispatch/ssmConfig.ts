@@ -23,17 +23,13 @@ export const getSharedConfig = async (stage: string): Promise<SharedConfig> => {
   return { clusterArn, subnetIds, securityGroupIds };
 };
 
-export const getVendorConfig = async (
-  stage: string,
-  vendorId: string,
-): Promise<VendorConfig> => {
+export const getVendorConfig = async (stage: string, vendorId: string): Promise<VendorConfig> => {
   const prefix = `/order-goods/${stage.toLowerCase()}/${vendorId}`;
-  const [taskDefinitionArn, taskDefinitionFamily, logGroupName] =
-    await Promise.all([
-      getParam(`${prefix}/task-definition-arn`),
-      getParam(`${prefix}/task-definition-family`),
-      getParam(`${prefix}/log-group-name`),
-    ]);
+  const [taskDefinitionArn, taskDefinitionFamily, logGroupName] = await Promise.all([
+    getParam(`${prefix}/task-definition-arn`),
+    getParam(`${prefix}/task-definition-family`),
+    getParam(`${prefix}/log-group-name`),
+  ]);
   return { taskDefinitionArn, taskDefinitionFamily, logGroupName };
 };
 
@@ -41,10 +37,7 @@ export const getVendorConfig = async (
  * Reads the vendor recipient email from SSM.
  * Path: /order-goods/{stage}/{vendorId}/recipient-email
  */
-export const getVendorEmail = async (
-  stage: string,
-  vendorId: string,
-): Promise<string> => {
+export const getVendorEmail = async (stage: string, vendorId: string): Promise<string> => {
   const param = `/order-goods/${stage.toLowerCase()}/${vendorId}/recipient-email`;
   return getParam(param);
 };

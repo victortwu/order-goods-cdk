@@ -1,7 +1,4 @@
-import {
-  CloudWatchLogsClient,
-  GetLogEventsCommand,
-} from "@aws-sdk/client-cloudwatch-logs";
+import { CloudWatchLogsClient, GetLogEventsCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { ResultProcessorInput, OrderResult } from "./constants/types";
 
 const cwlClient = new CloudWatchLogsClient({});
@@ -11,9 +8,7 @@ const extractTaskId = (taskArn: string): string => {
   return segments[segments.length - 1];
 };
 
-export const handler = async (
-  event: ResultProcessorInput,
-): Promise<OrderResult> => {
+export const handler = async (event: ResultProcessorInput): Promise<OrderResult> => {
   const { taskArn, logGroupName, containerName } = event;
   const taskId = extractTaskId(taskArn);
   const logStream = `${containerName}/${containerName}/${taskId}`;
@@ -29,9 +24,7 @@ export const handler = async (
 
   const events = response.events ?? [];
   if (events.length === 0) {
-    throw new Error(
-      `No log events found in ${logGroupName}/${logStream} for task ${taskId}`,
-    );
+    throw new Error(`No log events found in ${logGroupName}/${logStream} for task ${taskId}`);
   }
 
   for (let i = events.length - 1; i >= 0; i--) {
@@ -45,7 +38,5 @@ export const handler = async (
     }
   }
 
-  throw new Error(
-    `Could not find a valid OrderResult JSON in logs for task ${taskId}`,
-  );
+  throw new Error(`Could not find a valid OrderResult JSON in logs for task ${taskId}`);
 };

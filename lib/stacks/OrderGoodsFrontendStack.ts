@@ -10,11 +10,7 @@ export interface OrderGoodsFrontendStackProps extends StackProps {
 }
 
 export class OrderGoodsFrontendStack extends Stack {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: OrderGoodsFrontendStackProps,
-  ) {
+  constructor(scope: Construct, id: string, props: OrderGoodsFrontendStackProps) {
     super(scope, id, props);
 
     const bucket = new s3.Bucket(this, "FrontendBucket", {
@@ -23,30 +19,25 @@ export class OrderGoodsFrontendStack extends Stack {
       autoDeleteObjects: true,
     });
 
-    const distribution = new cloudfront.Distribution(
-      this,
-      "FrontendDistribution",
-      {
-        defaultBehavior: {
-          origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        },
-        defaultRootObject: "index.html",
-        errorResponses: [
-          {
-            httpStatus: 403,
-            responseHttpStatus: 200,
-            responsePagePath: "/index.html",
-          },
-          {
-            httpStatus: 404,
-            responseHttpStatus: 200,
-            responsePagePath: "/index.html",
-          },
-        ],
+    const distribution = new cloudfront.Distribution(this, "FrontendDistribution", {
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
-    );
+      defaultRootObject: "index.html",
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+        },
+      ],
+    });
 
     new s3deploy.BucketDeployment(this, "DeployFrontend", {
       sources: [s3deploy.Source.asset("../order-goods-react-spa/dist")],

@@ -14,11 +14,7 @@ interface OrderGoodsOrchestrationStackProps extends StackProps {
 }
 
 export class OrderGoodsOrchestrationStack extends Stack {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: OrderGoodsOrchestrationStackProps,
-  ) {
+  constructor(scope: Construct, id: string, props: OrderGoodsOrchestrationStackProps) {
     super(scope, id, props);
 
     const { stage } = props;
@@ -190,10 +186,12 @@ export class OrderGoodsOrchestrationStack extends Stack {
       .when(sfn.Condition.stringEquals("$.dispatchMethod", "ecs_bot"), botPath)
       .when(sfn.Condition.stringEquals("$.dispatchMethod", "email"), invokeEmailDispatch)
       .when(sfn.Condition.stringEquals("$.dispatchMethod", "api"), apiNotImplemented)
-      .otherwise(new sfn.Fail(this, "UnknownDispatchMethod", {
-        cause: "Unknown dispatch method",
-        error: "UnknownDispatchMethodError",
-      }));
+      .otherwise(
+        new sfn.Fail(this, "UnknownDispatchMethod", {
+          cause: "Unknown dispatch method",
+          error: "UnknownDispatchMethodError",
+        }),
+      );
 
     // --- Log Group ---
 
@@ -245,11 +243,7 @@ export class OrderGoodsOrchestrationStack extends Stack {
     stateMachine.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: [
-          "events:PutTargets",
-          "events:PutRule",
-          "events:DescribeRule",
-        ],
+        actions: ["events:PutTargets", "events:PutRule", "events:DescribeRule"],
         resources: ["*"],
       }),
     );

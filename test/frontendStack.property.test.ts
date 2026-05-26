@@ -43,9 +43,7 @@ const distinctStagesArb = fc
   .filter((arr) => new Set(arr).size === arr.length);
 
 /** Pair of distinct stage name strings */
-const distinctStagePairArb = fc
-  .tuple(stageNameArb, stageNameArb)
-  .filter(([a, b]) => a !== b);
+const distinctStagePairArb = fc.tuple(stageNameArb, stageNameArb).filter(([a, b]) => a !== b);
 
 // --- Property Tests ---
 
@@ -67,9 +65,7 @@ describe("Property 1: Stage loop produces correct frontend stack count and namin
 
         // Every stack name starts with one of the stage names followed by a hyphen
         for (const name of stackNames) {
-          const matchesAnyStage = stages.some((stage) =>
-            name.startsWith(`${stage}-`),
-          );
+          const matchesAnyStage = stages.some((stage) => name.startsWith(`${stage}-`));
           expect(matchesAnyStage).toBe(true);
         }
       }),

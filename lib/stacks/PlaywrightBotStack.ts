@@ -41,9 +41,7 @@ export class PlaywrightBotStack extends Stack {
     const taskExecutionRole = new iam.Role(this, "TaskExecutionRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          "service-role/AmazonECSTaskExecutionRolePolicy",
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy"),
       ],
     });
 
@@ -55,9 +53,7 @@ export class PlaywrightBotStack extends Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["secretsmanager:GetSecretValue"],
-        resources: [
-          `arn:aws:secretsmanager:*:*:secret:${credentialSecretPath}*`,
-        ],
+        resources: [`arn:aws:secretsmanager:*:*:secret:${credentialSecretPath}*`],
       }),
     );
 
