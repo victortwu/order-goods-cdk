@@ -1,8 +1,9 @@
 import { DynamoDBStreamEvent } from "aws-lambda";
+import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { AttributeValue } from "@aws-sdk/client-dynamodb";
-import { OrderItemRecord, VendorID } from "./constants/types";
+import { OrderItemRecord } from "./constants/types";
 import { groupItemsByVendor, buildVendorGroup, normalizeVendorId } from "./vendorRouter";
 import {
   getSharedConfig,
@@ -10,15 +11,43 @@ import {
   getVendorEmail,
   getDispatchMethod,
   getStateMachineArn,
+  getRecipientEmail,
+  getRecipientPhone,
+  getSnsTopicArn,
 } from "./ssmConfig";
 
 const sfnClient = new SFNClient({});
+const ddbClient = new DynamoDBClient({});
+
+const writePendingStatus = async (tableName: string, orderId: string, vendorId: string) => {
+  await ddbClient.send(
+    new UpdateItemCommand({
+      TableName: tableName,
+      Key: { id: { S: orderId } },
+      UpdateExpression: "SET vendorStatuses.#vid = :status",
+      ExpressionAttributeNames: { "#vid": vendorId },
+      ExpressionAttributeValues: {
+        ":status": {
+          M: {
+            status: { S: "pending" },
+            timestamp: { S: new Date().toISOString() },
+          },
+        },
+      },
+    }),
+  );
+};
 
 export const dispatchHandler = async (event: DynamoDBStreamEvent): Promise<void> => {
-  const recipientEmail = process.env.RECIPIENT_EMAIL!;
   const stage = process.env.STAGE!;
+  const tableName = process.env.ORDERED_LIST_TABLE_NAME!;
 
-  const stateMachineArn = await getStateMachineArn(stage);
+  const [stateMachineArn, recipientEmail, recipientPhone, snsTopicArn] = await Promise.all([
+    getStateMachineArn(stage),
+    getRecipientEmail(stage),
+    getRecipientPhone(stage),
+    getSnsTopicArn(stage),
+  ]);
 
   for (const record of event.Records) {
     if (record.eventName !== "INSERT") continue;
@@ -39,6 +68,16 @@ export const dispatchHandler = async (event: DynamoDBStreamEvent): Promise<void>
       continue;
     }
 
+    // Initialize vendorStatuses map on the order record
+    await ddbClient.send(
+      new UpdateItemCommand({
+        TableName: tableName,
+        Key: { id: { S: orderId } },
+        UpdateExpression: "SET vendorStatuses = if_not_exists(vendorStatuses, :empty)",
+        ExpressionAttributeValues: { ":empty": { M: {} } },
+      }),
+    );
+
     const vendorGroups = groupItemsByVendor(list);
 
     for (const [vendorId, items] of vendorGroups) {
@@ -48,12 +87,18 @@ export const dispatchHandler = async (event: DynamoDBStreamEvent): Promise<void>
       try {
         const dispatchMethod = await getDispatchMethod(stage, normalizedVendorId);
 
+        // Write pending status
+        await writePendingStatus(tableName, orderId, normalizedVendorId);
+
         const executionInput: Record<string, unknown> = {
           orderId,
           vendorId: normalizedVendorId,
           dispatchMethod,
           vendorGroup,
           recipientEmail,
+          recipientPhone,
+          snsTopicArn,
+          tableName,
           stage,
         };
 

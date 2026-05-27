@@ -13,6 +13,17 @@ jest.mock("@aws-sdk/client-sfn", () => {
   };
 });
 
+// --- Mock DynamoDB client ---
+
+const mockDdbSend = jest.fn().mockResolvedValue({});
+jest.mock("@aws-sdk/client-dynamodb", () => {
+  const actual = jest.requireActual("@aws-sdk/client-dynamodb");
+  return {
+    ...actual,
+    DynamoDBClient: jest.fn(() => ({ send: mockDdbSend })),
+  };
+});
+
 // --- Mock unmarshall ---
 
 const mockUnmarshall = jest.fn();
@@ -27,18 +38,24 @@ const mockGetStateMachineArn = jest.fn();
 const mockGetSharedConfig = jest.fn();
 const mockGetVendorConfig = jest.fn();
 const mockGetVendorEmail = jest.fn();
+const mockGetRecipientEmail = jest.fn();
+const mockGetRecipientPhone = jest.fn();
+const mockGetSnsTopicArn = jest.fn();
 jest.mock("../lib/lambdas/dispatch/ssmConfig", () => ({
   getDispatchMethod: mockGetDispatchMethod,
   getStateMachineArn: mockGetStateMachineArn,
   getSharedConfig: mockGetSharedConfig,
   getVendorConfig: mockGetVendorConfig,
   getVendorEmail: mockGetVendorEmail,
+  getRecipientEmail: mockGetRecipientEmail,
+  getRecipientPhone: mockGetRecipientPhone,
+  getSnsTopicArn: mockGetSnsTopicArn,
 }));
 
 // --- Env setup ---
 
-process.env.RECIPIENT_EMAIL = "test@example.com";
 process.env.STAGE = "Beta";
+process.env.ORDERED_LIST_TABLE_NAME = "OrderedListTable-Beta-test123";
 
 // --- Helpers ---
 
@@ -104,14 +121,21 @@ describe("dispatchHandler", () => {
 
   beforeEach(() => {
     mockSfnSend.mockReset();
+    mockDdbSend.mockReset().mockResolvedValue({});
     mockUnmarshall.mockReset();
     mockGetDispatchMethod.mockReset();
     mockGetStateMachineArn.mockReset();
     mockGetSharedConfig.mockReset();
     mockGetVendorConfig.mockReset();
     mockGetVendorEmail.mockReset();
+    mockGetRecipientEmail.mockReset();
+    mockGetRecipientPhone.mockReset();
+    mockGetSnsTopicArn.mockReset();
 
     mockGetStateMachineArn.mockResolvedValue("arn:aws:states:us-west-2:123:stateMachine:test");
+    mockGetRecipientEmail.mockResolvedValue("test@example.com");
+    mockGetRecipientPhone.mockResolvedValue("+12065551234");
+    mockGetSnsTopicArn.mockResolvedValue("arn:aws:sns:us-west-2:123:test-topic");
     mockSfnSend.mockResolvedValue({});
   });
 

@@ -29,8 +29,8 @@ export class OrderGoodsDispatchStack extends Stack {
         forceDockerBundling: false,
       },
       environment: {
-        RECIPIENT_EMAIL: process.env.RECIPIENT_EMAIL || "",
         STAGE: props.stage,
+        ORDERED_LIST_TABLE_NAME: props.orderedListTable.tableName,
       },
     });
 
@@ -54,6 +54,14 @@ export class OrderGoodsDispatchStack extends Stack {
         effect: Effect.ALLOW,
         actions: ["ssm:GetParameter"],
         resources: [`arn:aws:ssm:*:*:parameter/order-goods/${stageLower}/*`],
+      }),
+    );
+
+    dispatchLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["dynamodb:UpdateItem"],
+        resources: [props.orderedListTable.tableArn],
       }),
     );
   }

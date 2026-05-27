@@ -35,6 +35,7 @@
     "@aws-sdk/client-ecs": "^3.1032.0",
     "@aws-sdk/client-ses": "^3.1030.0",
     "@aws-sdk/client-sfn": "^3.1043.0",
+    "@aws-sdk/client-sns": "^3.1054.0",
     "@aws-sdk/client-ssm": "^3.1030.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",
     "@types/uuid": "^9.0.7",

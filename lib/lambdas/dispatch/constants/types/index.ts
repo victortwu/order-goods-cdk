@@ -54,6 +54,8 @@ export interface VendorGroup {
 
 // --- Order Result Types ---
 
+export type DispatchMethod = "ecs_bot" | "email" | "api" | "not_configured";
+
 export type OrderResultStatus =
   | "success"
   | "partial_success"

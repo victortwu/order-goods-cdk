@@ -1,6 +1,6 @@
 // Shared types for orchestration Lambdas
 
-export type DispatchMethod = "ecs_bot" | "email" | "api";
+export type DispatchMethod = "ecs_bot" | "email" | "api" | "not_configured";
 
 export type OrderResultStatus =
   | "success"
@@ -12,6 +12,8 @@ export type OrderResultStatus =
   | "browser_failure"
   | "timeout"
   | "delivery_unavailable";
+
+export type VendorStatus = OrderResultStatus | "pending" | "not_configured" | "email_sent";
 
 export interface OrderResult {
   orderId: string;
@@ -62,6 +64,9 @@ export interface ExecutionInput {
   ecsConfig?: EcsConfig;
   emailConfig?: EmailConfig;
   recipientEmail: string;
+  recipientPhone: string;
+  snsTopicArn: string;
+  tableName: string;
   stage: string;
 }
 
@@ -72,8 +77,11 @@ export interface ResultProcessorInput {
 }
 
 export interface NotificationInput {
-  type: "success" | "failure";
+  type: "success" | "failure" | "not_configured" | "email_sent";
   recipientEmail: string;
+  recipientPhone: string;
+  snsTopicArn: string;
+  tableName: string;
   vendorGroup: VendorGroup;
   orderResult?: OrderResult;
   error?: string;

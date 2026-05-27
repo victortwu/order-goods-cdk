@@ -2,10 +2,11 @@ import { Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import { PolicyStatement, Effect } from "aws-cdk-lib/aws-iam";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as sns from "aws-cdk-lib/aws-sns";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { join } from "path";
 
@@ -20,6 +21,17 @@ export class OrderGoodsOrchestrationStack extends Stack {
     const { stage } = props;
     const stageLower = stage.toLowerCase();
     const lambdaDir = join(__dirname, "..", "lambdas", "orchestration");
+
+    // --- SNS Topic ---
+
+    const notificationTopic = new sns.Topic(this, "NotificationTopic", {
+      topicName: `OrderGoods-${stage}-OrderNotifications`,
+    });
+
+    new ssm.StringParameter(this, "SnsTopicArnParam", {
+      parameterName: `/order-goods/${stageLower}/orchestration/sns-topic-arn`,
+      stringValue: notificationTopic.topicArn,
+    });
 
     // --- Lambdas ---
 
@@ -54,6 +66,22 @@ export class OrderGoodsOrchestrationStack extends Stack {
         effect: Effect.ALLOW,
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
         resources: ["*"],
+      }),
+    );
+
+    notificationLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["sns:Publish"],
+        resources: [notificationTopic.topicArn],
+      }),
+    );
+
+    notificationLambda.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["dynamodb:UpdateItem"],
+        resources: [`arn:aws:dynamodb:*:*:table/OrderedListTable-${stage}-*`],
       }),
     );
 
@@ -126,6 +154,9 @@ export class OrderGoodsOrchestrationStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         type: "success",
         recipientEmail: sfn.JsonPath.stringAt("$.recipientEmail"),
+        recipientPhone: sfn.JsonPath.stringAt("$.recipientPhone"),
+        snsTopicArn: sfn.JsonPath.stringAt("$.snsTopicArn"),
+        tableName: sfn.JsonPath.stringAt("$.tableName"),
         vendorGroup: sfn.JsonPath.objectAt("$.vendorGroup"),
         orderResult: sfn.JsonPath.objectAt("$.resultProcessorOutput"),
       }),
@@ -138,6 +169,9 @@ export class OrderGoodsOrchestrationStack extends Stack {
       payload: sfn.TaskInput.fromObject({
         type: "failure",
         recipientEmail: sfn.JsonPath.stringAt("$.recipientEmail"),
+        recipientPhone: sfn.JsonPath.stringAt("$.recipientPhone"),
+        snsTopicArn: sfn.JsonPath.stringAt("$.snsTopicArn"),
+        tableName: sfn.JsonPath.stringAt("$.tableName"),
         vendorGroup: sfn.JsonPath.objectAt("$.vendorGroup"),
         error: sfn.JsonPath.stringAt("$.error.Cause"),
       }),
@@ -145,7 +179,7 @@ export class OrderGoodsOrchestrationStack extends Stack {
       payloadResponseOnly: true,
     });
 
-    // Email path: Email Dispatch Lambda → done
+    // Email path: Email Dispatch Lambda → Notification (email_sent status)
     const invokeEmailDispatch = new tasks.LambdaInvoke(this, "InvokeEmailDispatch", {
       lambdaFunction: emailDispatchLambda,
       payload: sfn.TaskInput.fromObject({
@@ -157,6 +191,39 @@ export class OrderGoodsOrchestrationStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    const sendEmailSentNotification = new tasks.LambdaInvoke(this, "SendEmailSentNotification", {
+      lambdaFunction: notificationLambda,
+      payload: sfn.TaskInput.fromObject({
+        type: "email_sent",
+        recipientEmail: sfn.JsonPath.stringAt("$.recipientEmail"),
+        recipientPhone: sfn.JsonPath.stringAt("$.recipientPhone"),
+        snsTopicArn: sfn.JsonPath.stringAt("$.snsTopicArn"),
+        tableName: sfn.JsonPath.stringAt("$.tableName"),
+        vendorGroup: sfn.JsonPath.objectAt("$.vendorGroup"),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    // Not configured path: Notification with items list
+    const sendNotConfiguredNotification = new tasks.LambdaInvoke(
+      this,
+      "SendNotConfiguredNotification",
+      {
+        lambdaFunction: notificationLambda,
+        payload: sfn.TaskInput.fromObject({
+          type: "not_configured",
+          recipientEmail: sfn.JsonPath.stringAt("$.recipientEmail"),
+          recipientPhone: sfn.JsonPath.stringAt("$.recipientPhone"),
+          snsTopicArn: sfn.JsonPath.stringAt("$.snsTopicArn"),
+          tableName: sfn.JsonPath.stringAt("$.tableName"),
+          vendorGroup: sfn.JsonPath.objectAt("$.vendorGroup"),
+        }),
+        resultPath: sfn.JsonPath.DISCARD,
+        payloadResponseOnly: true,
+      },
+    );
+
     // API path: placeholder fail
     const apiNotImplemented = new sfn.Fail(this, "ApiNotImplemented", {
       cause: "API dispatch not yet implemented",
@@ -166,25 +233,21 @@ export class OrderGoodsOrchestrationStack extends Stack {
     // Wire bot path with error handling
     const botPath = runBotTask.next(processResult).next(sendSuccessNotification);
 
-    // Add catch to RunBotTask
-    runBotTask.addCatch(sendErrorNotification, {
-      resultPath: "$.error",
-    });
+    runBotTask.addCatch(sendErrorNotification, { resultPath: "$.error" });
+    processResult.addCatch(sendErrorNotification, { resultPath: "$.error" });
 
-    // Add catch to ProcessResult
-    processResult.addCatch(sendErrorNotification, {
-      resultPath: "$.error",
-    });
-
-    // Email path with error handling
-    invokeEmailDispatch.addCatch(sendErrorNotification, {
-      resultPath: "$.error",
-    });
+    // Email path: dispatch then notify
+    const emailPath = invokeEmailDispatch.next(sendEmailSentNotification);
+    invokeEmailDispatch.addCatch(sendErrorNotification, { resultPath: "$.error" });
 
     // Choice state: route by dispatch method
     const routeByMethod = new sfn.Choice(this, "RouteByDispatchMethod")
       .when(sfn.Condition.stringEquals("$.dispatchMethod", "ecs_bot"), botPath)
-      .when(sfn.Condition.stringEquals("$.dispatchMethod", "email"), invokeEmailDispatch)
+      .when(sfn.Condition.stringEquals("$.dispatchMethod", "email"), emailPath)
+      .when(
+        sfn.Condition.stringEquals("$.dispatchMethod", "not_configured"),
+        sendNotConfiguredNotification,
+      )
       .when(sfn.Condition.stringEquals("$.dispatchMethod", "api"), apiNotImplemented)
       .otherwise(
         new sfn.Fail(this, "UnknownDispatchMethod", {

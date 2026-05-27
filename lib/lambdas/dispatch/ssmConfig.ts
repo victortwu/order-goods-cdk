@@ -1,5 +1,5 @@
-import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import { SharedConfig, VendorConfig } from "./constants/types";
+import { SSMClient, GetParameterCommand, ParameterNotFound } from "@aws-sdk/client-ssm";
+import { DispatchMethod, SharedConfig, VendorConfig } from "./constants/types";
 
 const ssmClient = new SSMClient({});
 const cache = new Map<string, string>();
@@ -33,10 +33,6 @@ export const getVendorConfig = async (stage: string, vendorId: string): Promise<
   return { taskDefinitionArn, taskDefinitionFamily, logGroupName };
 };
 
-/**
- * Reads the vendor recipient email from SSM.
- * Path: /order-goods/{stage}/{vendorId}/recipient-email
- */
 export const getVendorEmail = async (stage: string, vendorId: string): Promise<string> => {
   const param = `/order-goods/${stage.toLowerCase()}/${vendorId}/recipient-email`;
   return getParam(param);
@@ -44,22 +40,42 @@ export const getVendorEmail = async (stage: string, vendorId: string): Promise<s
 
 /**
  * Reads the dispatch method for a vendor from SSM.
- * Path: /order-goods/{stage}/{vendorId}/dispatch-method
- * Returns: "ecs_bot" | "email" | "api"
+ * Returns "not_configured" if the parameter does not exist.
  */
 export const getDispatchMethod = async (
   stage: string,
   vendorId: string,
-): Promise<"ecs_bot" | "email" | "api"> => {
+): Promise<DispatchMethod> => {
   const param = `/order-goods/${stage.toLowerCase()}/${vendorId}/dispatch-method`;
-  return getParam(param) as Promise<"ecs_bot" | "email" | "api">;
+  try {
+    return (await getParam(param)) as DispatchMethod;
+  } catch (err) {
+    if (
+      err instanceof ParameterNotFound ||
+      (err as { name?: string }).name === "ParameterNotFound"
+    ) {
+      return "not_configured";
+    }
+    throw err;
+  }
 };
 
-/**
- * Reads the orchestration state machine ARN from SSM.
- * Path: /order-goods/{stage}/orchestration/state-machine-arn
- */
 export const getStateMachineArn = async (stage: string): Promise<string> => {
   const param = `/order-goods/${stage.toLowerCase()}/orchestration/state-machine-arn`;
+  return getParam(param);
+};
+
+export const getRecipientEmail = async (stage: string): Promise<string> => {
+  const param = `/order-goods/${stage.toLowerCase()}/recipients/admin-001/email`;
+  return getParam(param);
+};
+
+export const getRecipientPhone = async (stage: string): Promise<string> => {
+  const param = `/order-goods/${stage.toLowerCase()}/recipients/admin-001/phone`;
+  return getParam(param);
+};
+
+export const getSnsTopicArn = async (stage: string): Promise<string> => {
+  const param = `/order-goods/${stage.toLowerCase()}/orchestration/sns-topic-arn`;
   return getParam(param);
 };

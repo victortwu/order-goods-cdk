@@ -30,11 +30,11 @@ describe("OrderGoodsDispatchStack", () => {
     });
   });
 
-  test("Lambda has STAGE and RECIPIENT_EMAIL environment variables", () => {
+  test("Lambda has STAGE and ORDERED_LIST_TABLE_NAME environment variables", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: {
         Variables: {
-          RECIPIENT_EMAIL: Match.anyValue(),
+          ORDERED_LIST_TABLE_NAME: Match.anyValue(),
           STAGE: "Test",
         },
       },

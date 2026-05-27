@@ -1,7 +1,44 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { NotificationInput, OrderResult, VendorGroup } from "./constants/types";
+import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
+import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { NotificationInput, OrderResult, VendorGroup, VendorStatus } from "./constants/types";
 
 const sesClient = new SESClient({});
+const snsClient = new SNSClient({});
+const ddbClient = new DynamoDBClient({});
+
+const updateVendorStatus = async (
+  tableName: string,
+  orderId: string,
+  vendorId: string,
+  status: VendorStatus,
+) => {
+  await ddbClient.send(
+    new UpdateItemCommand({
+      TableName: tableName,
+      Key: { id: { S: orderId } },
+      UpdateExpression: "SET vendorStatuses.#vid = :status",
+      ExpressionAttributeNames: { "#vid": vendorId },
+      ExpressionAttributeValues: {
+        ":status": {
+          M: {
+            status: { S: status },
+            timestamp: { S: new Date().toISOString() },
+          },
+        },
+      },
+    }),
+  );
+};
+
+const sendSms = async (snsTopicArn: string, message: string) => {
+  await snsClient.send(
+    new PublishCommand({
+      TopicArn: snsTopicArn,
+      Message: message,
+    }),
+  );
+};
 
 const formatSuccessBody = (result: OrderResult): string => {
   const lines: string[] = [
@@ -37,19 +74,73 @@ const formatSuccessBody = (result: OrderResult): string => {
 };
 
 const formatFailureBody = (vendorGroup: VendorGroup, error?: string): string =>
-  `Order ${vendorGroup.orderId} for vendor ${vendorGroup.vendorID} failed.\n\nError: ${error ?? "Unknown"}\n\nPayload:\n${JSON.stringify(vendorGroup, null, 2)}`;
+  `Order ${vendorGroup.orderId} for vendor ${vendorGroup.vendorID} failed.\n\nError: ${error ?? "Unknown"}`;
+
+const formatNotConfiguredBody = (vendorGroup: VendorGroup): string => {
+  const itemLines = vendorGroup.items
+    .map((item) => `  - ${item.qty} ${item.productName}`)
+    .join("\n");
+
+  return [
+    `${vendorGroup.vendorID} — Manual Action Required`,
+    "",
+    "The following items require manual ordering (no automation configured):",
+    "",
+    itemLines,
+    "",
+    `Order ID: ${vendorGroup.orderId}`,
+  ].join("\n");
+};
 
 export const handler = async (event: NotificationInput): Promise<void> => {
-  const { type, recipientEmail, vendorGroup, orderResult, error } = event;
+  const {
+    type,
+    recipientEmail,
+    recipientPhone,
+    snsTopicArn,
+    tableName,
+    vendorGroup,
+    orderResult,
+    error,
+  } = event;
 
-  const subject =
-    type === "success"
-      ? `Order ${vendorGroup.orderId} — ${orderResult!.status}`
-      : `Order ${vendorGroup.orderId} — Automation Failed (Fallback)`;
+  let subject: string;
+  let body: string;
+  let smsMessage: string;
+  let status: VendorStatus;
 
-  const body =
-    type === "success" ? formatSuccessBody(orderResult!) : formatFailureBody(vendorGroup, error);
+  switch (type) {
+    case "success":
+      status = orderResult!.status;
+      subject = `Order ${vendorGroup.orderId} — ${orderResult!.status}`;
+      body = formatSuccessBody(orderResult!);
+      smsMessage = `${vendorGroup.vendorID} order is ready for your review.`;
+      break;
+    case "failure":
+      status = "failure";
+      subject = `Order ${vendorGroup.orderId} — Automation Failed (Fallback)`;
+      body = formatFailureBody(vendorGroup, error);
+      smsMessage = `${vendorGroup.vendorID} order failed. Check email for details.`;
+      break;
+    case "email_sent":
+      status = "email_sent";
+      subject = `Order ${vendorGroup.orderId} — Email Sent to ${vendorGroup.vendorID}`;
+      body = `Email order for ${vendorGroup.vendorID} has been sent.\n\nItems:\n${vendorGroup.items.map((i) => `  - ${i.qty} ${i.productName}`).join("\n")}`;
+      smsMessage = `${vendorGroup.vendorID} order is ready for your review.`;
+      break;
+    case "not_configured":
+      status = "not_configured";
+      subject = `${vendorGroup.vendorID} — Manual Action Required`;
+      body = formatNotConfiguredBody(vendorGroup);
+      smsMessage = `${vendorGroup.vendorID}: ${vendorGroup.items.length} items require manual ordering.`;
+      break;
+  }
 
+  // 1. Update vendor status in DynamoDB
+  const normalizedVendorId = vendorGroup.vendorID.toLowerCase().replace(/_/g, "-");
+  await updateVendorStatus(tableName, vendorGroup.orderId, normalizedVendorId, status);
+
+  // 2. Send email via SES
   await sesClient.send(
     new SendEmailCommand({
       Destination: { ToAddresses: [recipientEmail] },
@@ -60,4 +151,7 @@ export const handler = async (event: NotificationInput): Promise<void> => {
       Source: recipientEmail,
     }),
   );
+
+  // 3. Send SMS via SNS
+  await sendSms(snsTopicArn, smsMessage);
 };
