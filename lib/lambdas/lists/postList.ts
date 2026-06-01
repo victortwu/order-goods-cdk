@@ -25,6 +25,9 @@ export const postList = async (
         timestamp: {
           N: timestamp.toString(),
         },
+        entityType: {
+          S: "order",
+        },
         list: { L: marshalledList as any },
       },
     }),
