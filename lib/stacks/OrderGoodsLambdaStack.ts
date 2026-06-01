@@ -64,8 +64,8 @@ export class OrderGoodsLambdaStack extends Stack {
     listsLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        resources: [props.orderedListTable.tableArn],
-        actions: ["dynamodb:PutItem", "dynamodb:GetItem"],
+        resources: [props.orderedListTable.tableArn, `${props.orderedListTable.tableArn}/index/*`],
+        actions: ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"],
       }),
     );
 
