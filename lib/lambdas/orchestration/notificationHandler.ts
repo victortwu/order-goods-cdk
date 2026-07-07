@@ -1,11 +1,37 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { NotificationInput, OrderResult, VendorGroup, VendorStatus } from "./constants/types";
 
 const sesClient = new SESClient({});
-const snsClient = new SNSClient({});
 const ddbClient = new DynamoDBClient({});
+const smClient = new SecretsManagerClient({});
+
+interface TwilioCredentials {
+  accountSid: string;
+  apiKeySid: string;
+  apiKeySecret: string;
+  fromNumber: string;
+}
+
+let cachedCredentials: TwilioCredentials | null | undefined = undefined;
+
+const getTwilioCredentials = async (): Promise<TwilioCredentials | null> => {
+  if (cachedCredentials !== undefined) return cachedCredentials;
+
+  const secretName = `bdk/${process.env.STAGE}/twilio-credentials`;
+  try {
+    const { SecretString } = await smClient.send(
+      new GetSecretValueCommand({ SecretId: secretName }),
+    );
+    cachedCredentials = JSON.parse(SecretString!) as TwilioCredentials;
+  } catch {
+    console.log("Twilio credentials not found — SMS disabled for this stage");
+    cachedCredentials = null;
+  }
+
+  return cachedCredentials;
+};
 
 const updateVendorStatus = async (
   tableName: string,
@@ -31,13 +57,38 @@ const updateVendorStatus = async (
   );
 };
 
-const sendSms = async (snsTopicArn: string, message: string) => {
-  await snsClient.send(
-    new PublishCommand({
-      TopicArn: snsTopicArn,
-      Message: message,
-    }),
-  );
+const sendSms = async (recipientPhone: string, message: string) => {
+  const creds = await getTwilioCredentials();
+  if (!creds) return;
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Messages.json`;
+
+  const body = new URLSearchParams({
+    To: recipientPhone,
+    From: creds.fromNumber,
+    Body: message,
+  });
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${creds.apiKeySid}:${creds.apiKeySecret}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Twilio SMS failed:", response.status, errorBody);
+    } else {
+      const result = await response.json();
+      console.log("SMS sent:", result.sid);
+    }
+  } catch (err) {
+    console.error("Twilio SMS request error:", err);
+  }
 };
 
 const formatSuccessBody = (result: OrderResult): string => {
@@ -93,16 +144,8 @@ const formatNotConfiguredBody = (vendorGroup: VendorGroup): string => {
 };
 
 export const handler = async (event: NotificationInput): Promise<void> => {
-  const {
-    type,
-    recipientEmail,
-    recipientPhone,
-    snsTopicArn,
-    tableName,
-    vendorGroup,
-    orderResult,
-    error,
-  } = event;
+  const { type, recipientEmail, recipientPhone, tableName, vendorGroup, orderResult, error } =
+    event;
 
   let subject: string;
   let body: string;
@@ -152,6 +195,6 @@ export const handler = async (event: NotificationInput): Promise<void> => {
     }),
   );
 
-  // 3. Send SMS via SNS
-  await sendSms(snsTopicArn, smsMessage);
+  // 3. Send SMS via Twilio
+  await sendSms(recipientPhone, smsMessage);
 };

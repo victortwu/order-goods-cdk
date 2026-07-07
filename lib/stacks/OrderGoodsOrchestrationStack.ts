@@ -59,6 +59,9 @@ export class OrderGoodsOrchestrationStack extends Stack {
       runtime: Runtime.NODEJS_22_X,
       timeout: Duration.seconds(30),
       bundling: { forceDockerBundling: false },
+      environment: {
+        STAGE: stageLower,
+      },
     });
 
     notificationLambda.addToRolePolicy(
@@ -72,8 +75,8 @@ export class OrderGoodsOrchestrationStack extends Stack {
     notificationLambda.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ["sns:Publish"],
-        resources: [notificationTopic.topicArn],
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [`arn:aws:secretsmanager:*:*:secret:bdk/*/twilio-credentials*`],
       }),
     );
 

@@ -80,7 +80,7 @@ export interface NotificationInput {
   type: "success" | "failure" | "not_configured" | "email_sent";
   recipientEmail: string;
   recipientPhone: string;
-  snsTopicArn: string;
+  snsTopicArn?: string;
   tableName: string;
   vendorGroup: VendorGroup;
   orderResult?: OrderResult;
