@@ -32,7 +32,7 @@ export const handler = async (event: EmailDispatchInput): Promise<void> => {
           Subject: { Data: subject },
           Body: { Text: { Data: body } },
         },
-        Source: recipientEmail,
+        Source: "orders@eatbdk.com",
       }),
     );
   } catch (err) {
@@ -53,7 +53,7 @@ export const handler = async (event: EmailDispatchInput): Promise<void> => {
         },
         Body: { Text: { Data: notificationBody } },
       },
-      Source: recipientEmail,
+      Source: "orders@eatbdk.com",
     }),
   );
 };

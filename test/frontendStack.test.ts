@@ -150,3 +150,76 @@ describe("OrderGoodsFrontendStack", () => {
     });
   });
 });
+
+describe("OrderGoodsFrontendStack — custom domain (Prod)", () => {
+  let template: Template;
+  const distDir = path.resolve(__dirname, "../../order-goods-react-spa/dist");
+  let createdDistDir = false;
+
+  const domainName = "ordergoods.eatbdk.com";
+  const certificateArn =
+    "arn:aws:acm:us-east-1:653102291240:certificate/402cdd8e-9f77-4c07-8aee-2e908b646f47";
+  const hostedZoneId = "Z0800972IN9ZTIJFYOY3";
+  const zoneName = "eatbdk.com";
+
+  beforeAll(() => {
+    // Ensure dist/ directory exists so Source.asset() resolves during synthesis
+    if (!fs.existsSync(distDir)) {
+      fs.mkdirSync(distDir, { recursive: true });
+      fs.writeFileSync(path.join(distDir, "index.html"), "<html></html>");
+      createdDistDir = true;
+    }
+
+    const app = new cdk.App();
+    const stack = new OrderGoodsFrontendStack(app, "Prod-OrderGoodsFrontendStack", {
+      stage: "Prod",
+      domainName,
+      certificateArn,
+      hostedZoneId,
+      zoneName,
+    });
+    template = Template.fromStack(stack);
+  });
+
+  afterAll(() => {
+    if (createdDistDir) {
+      fs.rmSync(distDir, { recursive: true, force: true });
+    }
+  });
+
+  test("CloudFront distribution declares the custom domain as an alias", () => {
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: [domainName],
+      }),
+    });
+  });
+
+  test("CloudFront distribution references the imported ACM certificate", () => {
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        ViewerCertificate: Match.objectLike({
+          AcmCertificateArn: certificateArn,
+          SslSupportMethod: "sni-only",
+        }),
+      }),
+    });
+  });
+
+  test("Route 53 alias A-record points the custom domain at CloudFront", () => {
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Type: "A",
+      Name: `${domainName}.`,
+      HostedZoneId: hostedZoneId,
+      AliasTarget: Match.objectLike({
+        DNSName: Match.anyValue(),
+      }),
+    });
+  });
+
+  test("Stack outputs include the custom domain URL", () => {
+    template.hasOutput("CustomDomainUrl", {
+      Value: `https://${domainName}`,
+    });
+  });
+});

@@ -191,7 +191,7 @@ export const handler = async (event: NotificationInput): Promise<void> => {
         Subject: { Data: subject },
         Body: { Text: { Data: body } },
       },
-      Source: recipientEmail,
+      Source: "orders@eatbdk.com",
     }),
   );
 

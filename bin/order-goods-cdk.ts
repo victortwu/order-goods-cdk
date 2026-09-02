@@ -14,6 +14,20 @@ import { OrderGoodsOrchestrationStack } from "../lib/stacks/OrderGoodsOrchestrat
 const app = new cdk.App();
 const stages = ["Beta", "Prod"];
 
+// Shared DNS + certificate facts (management account 653102291240). The
+// eatbdk.com hosted zone and the wildcard cert both live in this account, so
+// OrderGoods can reference them directly — no cross-account work required.
+const EATBDK_HOSTED_ZONE_ID = "Z0800972IN9ZTIJFYOY3";
+const EATBDK_ZONE_NAME = "eatbdk.com";
+const EATBDK_WILDCARD_CERT_ARN =
+  "arn:aws:acm:us-east-1:653102291240:certificate/402cdd8e-9f77-4c07-8aee-2e908b646f47";
+
+// Per-stage custom domain for the frontend. Only Prod is publicly branded;
+// Beta continues to serve off its default *.cloudfront.net domain.
+const frontendDomainByStage: Record<string, string | undefined> = {
+  Prod: "ordergoods.eatbdk.com",
+};
+
 for (const stage of stages) {
   const stageLower = stage.toLowerCase();
 
@@ -59,7 +73,17 @@ for (const stage of stages) {
   dispatchStack.addDependency(rdBotStack);
   dispatchStack.addDependency(orchestrationStack);
 
+  const frontendDomainName = frontendDomainByStage[stage];
+
   new OrderGoodsFrontendStack(app, `${stage}-OrderGoodsFrontendStack`, {
     stage,
+    ...(frontendDomainName
+      ? {
+          domainName: frontendDomainName,
+          certificateArn: EATBDK_WILDCARD_CERT_ARN,
+          hostedZoneId: EATBDK_HOSTED_ZONE_ID,
+          zoneName: EATBDK_ZONE_NAME,
+        }
+      : {}),
   });
 }
